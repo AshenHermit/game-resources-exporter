@@ -1,0 +1,32 @@
+экосистема blend файлов:
+	в blend файле должны находиться модели в таком формате:
+		[collection "model_name_ref"]
+			[empty "attach_<attachment_id1>" (локальная точка, для эффектов, вычислений)]
+			[empty "attach_<attachment_id2>" (локальная точка, для эффектов, вычислений)]
+			...
+			[mesh "..." (визуальная модель)]
+			[mesh "..." (визуальная модель)]
+			...
+
+		[collection "model_name_phy"]
+			[mesh "..." (физическая модель)]
+			[mesh "..." (физическая модель)]
+			...
+
+	имя материала ref моделей должно соответствовать имени текстуры
+
+custom properties:
+	прозрачность материала        - {"transparent": 1}             (в custom properties материала         (вкладка Material Properties))
+	наличие светящейся текстуры   - {"emission": 1}                (в custom properties материала         (вкладка Material Properties))
+	статическая физическая модель - {"static": 1}                  (в custom properties физической модели (вкладка Object Properties))
+	свободная физическая модель   - {"rigid": 1}                   (в custom properties физической модели (вкладка Object Properties))
+	рисовать backfaces            - {"two_sided": 1}               (в custom properties визуальной модели    (вкладка Object Properties))
+	отрендерить иконку            - {"render_icon": 1}             (в custom properties визуальной модели    (вкладка Object Properties))
+	размер иконки                 - {"icon_size": 64}              (в custom properties визуальной модели    (вкладка Object Properties))
+	размер камеры                 - {"ortho_scale": 1.6}           (в custom properties визуальной модели    (вкладка Object Properties))
+	z точки направления камеры    - {"camera_look_at_z": 1.0}      (в custom properties attachment        (вкладка Object Properties))
+	тип attachment                - {"attachment_type": "<type>"}  (в custom properties attachment        (вкладка Object Properties))
+	тип точки спавна у attachment - {"spawn_point_type": "<type>"} (в custom properties attachment        (вкладка Object Properties))
+	формат ресурса видимой модели - {"format": "obj|glb"}          (в custom properties attachment        (вкладка Object Properties)) (если есть анимация - glb, в остальных случаях obj)
+
+лучше не custom properties юзать, а плагин написать
