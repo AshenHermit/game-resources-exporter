@@ -17,18 +17,21 @@ def patch_pathlib(mocker):
     mocker.patch("pathlib.Path.exists", lambda s: True)
     mocker.patch("pathlib.Path.resolve", lambda s: s)
 
+def patch_pathlib_stat(mocker, mtime):
+    mocker.patch("pathlib.Path.stat", lambda x: make_stat(mtime=mtime))
+
 def test_fileinfo(mocker):
     patch_pathlib(mocker)
-    mocker.patch("pathlib.Path.stat", lambda x: make_stat(mtime=1))
+    patch_pathlib_stat(mocker, 1)
     fileinfo = FileInfo.from_file("file")
     assert fileinfo.is_file_changed() == False
-    mocker.patch("pathlib.Path.stat", lambda x: make_stat(mtime=2))
+    patch_pathlib_stat(mocker, 2)
     assert fileinfo.is_file_changed() == True
     
 def test_res(mocker):
     patch_pathlib(mocker)
-    mocker.patch("pathlib.Path.stat", lambda x: make_stat(mtime=1))
+    patch_pathlib_stat(mocker, 1)
     fileinfo = FileInfo.from_file("file")
     assert fileinfo.is_file_changed() == False
-    mocker.patch("pathlib.Path.stat", lambda x: make_stat(mtime=2))
+    patch_pathlib_stat(mocker, 2)
     assert fileinfo.is_file_changed() == True

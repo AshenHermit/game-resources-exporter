@@ -1,23 +1,26 @@
-from dataclasses import dataclass
 from os import stat
 from pathlib import Path
 from typing import Generator
-from serde import serialize, deserialize
-from serde.json import to_json, from_json
+from serde import Model, fields
 import traceback
 from typing import Type
 
-CWD = Path(__file__).parent.resolve()
+CFD = Path(__file__).parent.resolve()
 
-@deserialize
-@serialize
-@dataclass
-class Storable():
+class PathField(fields.Field):
+    def serialize(self, value):
+        return str(value)
+    def deserialize(self, value):
+        return Path(value)
+
+
+class Storable(Model):
     """storing class instance to json"""
-    def __init__(self, storage_file:Path=None) -> None:
-        if storage_file is None:
-            storage_file = CWD / (self.__class__.__name__+".json")
-        self.storage_file = Path(storage_file)
+    def __init__(self, _storage_file:Path=None, **kwargs) -> None:
+        if _storage_file is None:
+            _storage_file = CFD / (self.__class__.__name__+".json")
+        self._storage_file = Path(_storage_file)
+        self.__dict__.update(kwargs)
     
     def load(self):
         loading_key = "something_is_loading"
@@ -28,32 +31,36 @@ class Storable():
         setattr(Storable, loading_key, True)
         
         cls = self.__class__
-        if not self.storage_file.exists(): 
-            return cls()
+        if not self._storage_file.exists(): 
+            return self
         
-        json_string = self.storage_file.read_text(
+        json_string = self._storage_file.read_text(
             encoding='utf-8')
-        instance = from_json(cls, json_string)
+        instance = cls.from_json(json_string)
+        _storage_file = self._storage_file
         self.__dict__.update(instance.__dict__)
+        self._storage_file = _storage_file
 
         # unblocking
         setattr(Storable, loading_key, False)
 
-        return instance
-
+        return self
+    
     @staticmethod
     def load_from_file(cls, storage_file:Path):
-        instance = cls(storage_file=storage_file)
+        instance = cls(_storage_file=storage_file)
         instance.load()
         return instance
 
     def save(self):
-        json_string = to_json(self)
+        json_string = self.to_json(indent=2)
         try:
-            self.storage_file.write_text(
+            if not hasattr(self, "_storage_file"): return False
+            self._storage_file.write_text(
                 json_string,
                 encoding='utf-8')
             return True
         except:
             traceback.print_exc()
             return False
+

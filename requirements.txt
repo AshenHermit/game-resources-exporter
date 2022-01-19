@@ -1,4 +1,5 @@
 godot-parser
+serde
 
 mock
 pytest-mock

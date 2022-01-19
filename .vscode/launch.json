@@ -5,6 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "exporter_cli warming-place/exporter_test",
+            "type": "python",
+            "request": "launch",
+            "program": "../exporter/export_res.py",
+            "args": ["observe"],
+            "cwd": "C:/Users/user/Documents/GODOT/Godot_Projects/warming-place/exporter_test/"
+        },
+        {
+            "name": "exporter_cli warming-place",
+            "type": "python",
+            "request": "launch",
+            "program": "exporter/export_res.py",
+            "args": ["observe"],
+            "cwd": "C:/Users/user/Documents/GODOT/Godot_Projects/warming-place"
+        },
+        {
             "name": "exporter.py",
             "type": "python",
             "request": "launch",
