@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import time
 from tracemalloc import start
+from turtle import Turtle
 from typing import Generator
 import traceback
 from typing import Type, TypeVar
@@ -12,6 +13,9 @@ from resources_exporter.storable import PathField, Storable
 from resources_exporter.resource_types.resource_base import ExportConfig, Resource
 import resources_exporter.utils as utils
 from serde import Model, fields
+import datetime
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
@@ -192,6 +196,8 @@ class ResourcesExporter:
 
         self.export_args_registry = ExportArgsRegistry()
         self.export_args_registry.load_with_files_iterator(self.files_iterator)
+
+        self.config.save()
     
     def print_exporting(self, filepath:Path):
         short_path = (filepath.relative_to(self.config.raw_folder).as_posix())
@@ -226,10 +232,13 @@ class ResourcesExporter:
 
     def start_observing(self):
         print()
-        start_time = time.time()
+
+        start_date = datetime.datetime.now()
+
         def elapsed_time_str():
-            et = (time.time() - start_time)
-            s = "{}s".format(round(et))
+            now = datetime.datetime.now()
+            elapsed_time = (now - start_date)
+            s = utils.strfdelta(elapsed_time)
             return f"{s:>9}"
             
         def print_status(erase_last=True):
@@ -239,17 +248,37 @@ class ResourcesExporter:
 
         resources = self.export_resources()
         print_status()
-        while True:
+        
+        should_close = False
+        def on_change():
             try:
                 resources = self.export_resources()
                 if len(resources)>0:
                     pass
-                # utils.remove_last_cmd_line()
-                print_status()
-                time.sleep(0.5)
-            except KeyboardInterrupt:
-                break
             except:
                 traceback.print_exc()
 
+        event_handler = FileSystemCallbackEventHandler(on_change)
+        observer = Observer()
+        observer.schedule(event_handler, str(self.config.raw_folder), recursive=True)
+        observer.start()
+        while not should_close:
+            try:
+                print_status()
+                time.sleep(1)
+            except KeyboardInterrupt:
+                should_close = True
+        observer.stop()
+        observer.join()
+
         print()
+
+class FileSystemCallbackEventHandler(FileSystemEventHandler):
+    def __init__(self, callback) -> None:
+        self.callback = callback
+    def on_modified(self, event):
+        self.callback()
+    def on_created(self, event):
+        self.callback()
+    def on_moved(self, event):
+        self.callback()

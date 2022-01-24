@@ -1,5 +1,6 @@
 godot-parser
 serde
+watchdog
 
 mock
 pytest-mock

@@ -23,22 +23,34 @@ def install_requirements():
         importlib.reload(gp)
 install_requirements()
 
-import utils
-import exporter_core
-import game_resources
+try:
+    from . import utils
+    from . import exporter_core
+    from . import game_resources
+except:
+    import utils
+    import exporter_core
+    import game_resources
 
 importlib.reload(utils)
 importlib.reload(exporter_core)
 importlib.reload(game_resources)
 
-from exporter_core import *
-from game_resources import *
+try:
+    from .exporter_core import *
+    from .game_resources import *
+except:
+    from exporter_core import *
+    from game_resources import *
 
 class BlendGodotExporter():
     def __init__(self, config:Config) -> None:
         self.config:Config = config
 
     def prepare_workspace_to_export(self):
+        for collection in bpy.context.scene.collection.children.values():
+            bpy.context.view_layer.layer_collection.children.get(collection.name).hide_viewport = False
+
         print("changing mode to OBJECT")
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
@@ -61,13 +73,16 @@ class BlendGodotExporter():
     def export_collections(self):
         for collection in bpy.context.scene.collection.children.values():
             utils.unselect_all_objects()
+            collection.hide_viewport = False
             collection.hide_render = False
+            collection.hide_select = False
 
+            
             self.export_one_collection(collection)
             
             for obj in collection.objects.values():
                 obj.select_set(False)
-            collection.hide_render = True
+            collection.hide_viewport = True
 
     def export_one_collection(self, collection):
         model = ModelResource.from_collection(collection, self.config)
@@ -87,7 +102,7 @@ def main():
     config.raw_resources_folder = raw_resources_folder
     config.project_filepath = filepath
 
-    config.object_processors.add(ObjectProcessor("blender_scripts.snow_maker"))
+    # config.object_processors.add(ObjectProcessor("processing.snow_maker"))
 
     exporter = BlendGodotExporter(config)
     exporter.export_project()

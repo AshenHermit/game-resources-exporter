@@ -1,7 +1,7 @@
 import argparse
+from enum import Enum, auto
 import json
 import pathlib
-from this import d
 import pip
 try:
     import godot_parser as gp
@@ -19,8 +19,12 @@ from math import *
 from pathlib import Path
 import shlex
 
-import utils
-from exporter_core import *
+try:
+    from . import utils
+    from .exporter_core import *
+except:
+    import utils
+    from exporter_core import *
 
 class GodotResPath(type(pathlib.Path())):
     def __str__(self) -> str:
@@ -30,6 +34,19 @@ class GodotResPath(type(pathlib.Path())):
     @property
     def pure_name(self):
         return self.with_suffix("").name
+
+class GodotResSaver():
+    def __init__(self, res:gp.GDFile, filepath:Path) -> None:
+        self.res:gp.GDFile = res
+        self.filepath:Path = filepath
+    
+    def save(self):
+        self.res.write(str(self.filepath.resolve()))
+
+class GDTypedResource(gp.GDResource):
+    def __init__(self, type:str="Resource", *sections: gp.GDSection) -> None:
+        super().__init__(*sections)
+        self.get_sections()[0].header.attributes["type"] = type
 
 class GameResource():
     def __init__(self, config:Config=None, name:str="") -> None:
@@ -41,7 +58,7 @@ class GameResource():
             value = getattr(self, key, None)
             if type(value) == bool:
                 setattr(self, key, 
-                    value or props[key]==1)
+                    props[key]==1)
             else:
                 setattr(self, key, props[key])
 
@@ -60,14 +77,10 @@ class GameResource():
     def export(self, **kwargs):
         pass
 
-class GDTypedResource(gp.GDResource):
-    def __init__(self, type:str="Resource", *sections: gp.GDSection) -> None:
-        super().__init__(*sections)
-        self.get_sections()[0].header.attributes["type"] = type
-
 class MaterialResource(GameResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
+        self.tex_name = name
         self.type = "SpatialMaterial"
         self.emission = False
         self.transparent = False
@@ -77,8 +90,7 @@ class MaterialResource(GameResource):
     
     @staticmethod
     def from_material_data(material_data, config:Config=None):
-        material = MaterialResource(config)
-        material.name = material_data.name
+        material = MaterialResource(config, material_data.name)
         material.material_data = material_data
         material.apply_properties(dict(material_data.items()))
         return material
@@ -93,23 +105,25 @@ class MaterialResource(GameResource):
     def output_path(self)->Path:
         return super().output_path.with_name(f"mat_{self.name}.tres")
     @property
-    def texture_res_path(self)->Path:
-        return self.res_path.with_name(self.name+".png")
+    def texture_res_path(self)->GodotResPath:
+        return self.res_path.with_name(self.tex_name+".png")
     @property
-    def emission_tex_res_path(self)->Path:
-        return self.res_path.with_name(self.res_path.pure_name+"_emission.png")
+    def emission_tex_res_path(self)->GodotResPath:
+        return self.res_path.with_name(self.texture_res_path.pure_name+"_emission.png")
 
     def export(self, **kwargs):
         if len(self.get_textures())>0:
-            self.export_textured_res()
+            self.make_textured_res().save()
         else:
-            self.export_colored_res()
+            self.export_colored_res().save()
 
-    def export_textured_res(self):
+    def make_textured_res(self):
         mat_res = GDTypedResource(self.type)
 
         tex_res = mat_res.add_ext_resource(str(self.texture_res_path), "Texture")
         mat_section = gp.GDResourceSection()
+        if self.two_sided: mat_section.properties['params_cull_mode'] = 2
+        if self.transparent: mat_section.properties['flags_transparent'] = True
         mat_section.properties["albedo_texture"] = tex_res.reference
         
         if self.emission:
@@ -118,7 +132,7 @@ class MaterialResource(GameResource):
             mat_section.properties["emission_texture"] = emm_res.reference
         
         mat_res.add_section(mat_section)
-        mat_res.write(str(self.output_path))
+        return GodotResSaver(mat_res, self.output_path)
 
     def export_colored_res(self):
         mat_res = GDTypedResource(self.type)
@@ -126,9 +140,12 @@ class MaterialResource(GameResource):
         mat_section = gp.GDResourceSection()
 
         mat_res.add_section(mat_section)
-        mat_res.write(str(self.output_path))
+        return GodotResSaver(mat_res, self.output_path)
 
 class ModelResource(GameResource):
+    VIEW_MODEL_CLASS:typing.Type
+    PHYSICS_MODEL_CLASS:typing.Type
+
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
@@ -147,25 +164,24 @@ class ModelResource(GameResource):
         model_name:str = collection.name
         if model_name.endswith("_phy"):
             model_name = model_name[:model_name.rfind("_phy")]
-            model = PhysicsModel(config)
+            model = ModelResource.PHYSICS_MODEL_CLASS(config)
         else:
             pref_pos = model_name.rfind("_ref")
             if pref_pos!=-1: model_name = model_name[:pref_pos]
-            model = ViewModel(config)
+            model = ModelResource.VIEW_MODEL_CLASS(config)
         
         model.collection = collection
         model.name = model_name
 
-        material_slots = {}
+        materials_data = []
         for obj in collection.objects.values():
             bpy.context.view_layer.objects.active = obj
             model._process_object(obj)
             model.apply_properties(obj)
-            material_slots.update(dict(obj.material_slots.items()))
+            materials_data += list(map(lambda x: x.material, obj.material_slots.values()))
         
-        for mat_key in material_slots:
-            mat_slot = material_slots[mat_key]
-            material = MaterialResource.from_material_data(mat_slot.material, config)
+        for material_data in materials_data:
+            material = MaterialResource.from_material_data(material_data, config)
             if material is not None:
                 model.materials.append(material)
 
@@ -204,6 +220,8 @@ class ViewModel(ModelResource):
         self.icon_size = 64
         self.camera_look_at_z = 1.0
         self.ortho_scale = 1.0
+        #TODO: add ability to not configure camera automaticly but use already set up camera in scene
+        self.auto_pos_camera = True
 
         self.animation_events = {}
 
@@ -223,7 +241,7 @@ class ViewModel(ModelResource):
         if self.render_icon:
             self._render_icon()
 
-        self.export_to_godot()
+        self.make_godot_scene().save()
 
     @property
     def output_path(self) -> Path:
@@ -239,8 +257,12 @@ class ViewModel(ModelResource):
     @property
     def is_mesh(self):
         return self.format == "obj"
+
+    @property
+    def has_animation(self):
+        return self.format == "glb"
         
-    def export_to_godot(self):
+    def make_godot_scene(self):
         scene = gp.GDScene()
 
         if self.is_mesh: res_type = "ArrayMesh"
@@ -260,34 +282,44 @@ class ViewModel(ModelResource):
             mesh_section = gp.GDNodeSection(self.name, instance=geometry_res.id)
             scene.add_section(mesh_section)
 
-        scene.write(str(self.output_scene_path))
+        return GodotResSaver(scene, self.output_scene_path)
 
     def _render_icon(self):
+        self.select_related_objects()
         scene = bpy.context.scene
         scene.world.node_tree.nodes['Background'].inputs['Strength'].default_value = 8
         scene.render.resolution_x = self.icon_size
         scene.render.resolution_y = self.icon_size
-        scene.camera.location[0] = 1
-        scene.camera.location[1] = -1
-        scene.camera.location[2] = 1 + self.camera_look_at_z
-        scene.camera.data.type = "ORTHO"
-        scene.camera.data.ortho_scale = self.ortho_scale
-        scene.camera.rotation_euler[0] = pi/4
-        scene.camera.rotation_euler[1] = 0
-        scene.camera.rotation_euler[2] = pi/4
+        if self.auto_pos_camera:
+            scene.camera.data.type = "ORTHO"
+            scene.camera.location[0] = 1
+            scene.camera.location[1] = -1
+            scene.camera.location[2] = 1 + self.camera_look_at_z
+            scene.camera.data.ortho_scale = self.ortho_scale
+            scene.camera.rotation_euler[0] = pi/4
+            scene.camera.rotation_euler[1] = 0
+            scene.camera.rotation_euler[2] = pi/4
         scene.render.film_transparent = True
         filepath = self.output_path.with_name(self.name+"_icon.png")
         scene.render.filepath = filepath.as_posix()
         bpy.ops.render.render(write_still=True)
-            
+
+ModelResource.VIEW_MODEL_CLASS = ViewModel
 
 class PhysicsModel(ModelResource):
+    class BodyType(Enum):
+        RIGID = auto()
+        STATIC = auto()
+        KINEMATIC = auto()
+    
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
         self.static = False
         """ generate static body """
         self.rigid = False
+        """ generate rigid body """
+        self.kinematic = False
         """ generate rigid body """
         self.convex = False
         """ if True - use convex geometry, if False - use concave geometry. """
@@ -298,7 +330,10 @@ class PhysicsModel(ModelResource):
         self.mesh_points += utils.get_vertex_data(obj)
 
     def export(self, **kwargs):
-        self.export_to_godot()
+        self.make_collision_shape().save()
+        if self.rigid:     self.make_body(self.BodyType.RIGID).save()
+        if self.static:    self.make_body(self.BodyType.STATIC).save()
+        if self.kinematic: self.make_body(self.BodyType.KINEMATIC).save()
     
     @property
     def collision_shape_path(self):
@@ -316,13 +351,11 @@ class PhysicsModel(ModelResource):
     @property
     def rigid_body_path(self):
         return self.output_path.with_name(self.name+"_rigid_body.tscn")
+    @property
+    def kinematic_body_path(self):
+        return self.output_path.with_name(self.name+"_kinematic_body.tscn")
 
-    def export_to_godot(self):
-        self.export_collision_shape()
-        if self.static: self.export_body(True)
-        if self.rigid:  self.export_body(False)
-
-    def export_collision_shape(self):
+    def make_collision_shape(self):
         scene = gp.GDScene()
         data_res_type = "ConcavePolygonShape" if not self.convex else "ConvexPolygonShape"
         prop_name = "data" if not self.convex else "points"
@@ -335,16 +368,19 @@ class PhysicsModel(ModelResource):
         shape_section.properties["shape"] = mesh_data_res.reference
 
         scene.add_section(shape_section)
-        scene.write(str(self.collision_shape_path))
+        return GodotResSaver(scene, self.collision_shape_path)
 
-    def export_body(self, static=False):
-        output_path = self.static_body_path if static else self.rigid_body_path
+    def make_body(self, body_type:BodyType):
+        body_type_int = body_type.value-1
+        
+        paths = [self.rigid_body_path, self.static_body_path, self.kinematic_body_path]
+        output_path = paths[body_type_int]
 
         scene = gp.GDScene()
         ref_model_res = scene.add_ext_resource(str(self.reference_model_res_path), "PackedScene")
         col_shape_res = scene.add_ext_resource(str(self.collision_shape_res_path), "PackedScene")
 
-        type = "StaticBody" if static else"RigidBody"
+        type = ["RigidBody", "StaticBody", "KinematicBody"][body_type_int]
 
         with scene.use_tree() as tree:
             tree.root = gp.Node(output_path.with_suffix("").name, type=type)
@@ -361,4 +397,6 @@ class PhysicsModel(ModelResource):
                 )
             )
         
-        scene.write(str(output_path))
+        return GodotResSaver(scene, output_path)
+
+ModelResource.PHYSICS_MODEL_CLASS = PhysicsModel

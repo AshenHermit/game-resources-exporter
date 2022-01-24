@@ -14,19 +14,14 @@ import subprocess
 CFD = Path(__file__).parent.resolve()
 
 class ExportConfig(Storable):
-    raw_folder: PathField
-    output_folder: PathField
-    output_root: PathField
-    verbose: bool
-    image_magic_cmd: fields.Str()
+    raw_folder: PathField = Path("resources")
+    output_folder: PathField = Path("output")
+    output_root: PathField = Path("")
+    verbose: bool = False
+    image_magic_cmd: fields.Str() = "convert"
+    blender_exporter_script: fields.Optional(PathField) = CFD/"blender_exporter/blend_export.py"
 
     def __init__(self, **kwargs) -> None:
-        self.raw_folder:Path = Path("resources")
-        self.output_folder:Path = Path("output")
-        self.output_root:Path = Path("")
-        self.verbose:bool = False
-        self.image_magic_cmd:str = "convert"
-
         super().__init__(**kwargs)
 
     def normalize(self):

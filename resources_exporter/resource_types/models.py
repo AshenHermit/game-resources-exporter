@@ -20,7 +20,7 @@ class BlenderModel(ModelResource):
         raw_resources_folder = self.config.raw_folder
         export_folder = self.config.output_folder
         game_root = self.config.output_root
-        cmd = f'blender "{self.filepath.as_posix()}" --background --python "{CFD.as_posix()}/blender_exporter/blend_export.py" "{raw_resources_folder.as_posix()}" "{export_folder.as_posix()}" "{game_root.as_posix()}"'
+        cmd = f'blender "{self.filepath.as_posix()}" --background --python "{self.config.blender_exporter_script.as_posix()}" "{raw_resources_folder.as_posix()}" "{export_folder.as_posix()}" "{game_root.as_posix()}"'
         self.run_command(cmd)
 
     @staticmethod

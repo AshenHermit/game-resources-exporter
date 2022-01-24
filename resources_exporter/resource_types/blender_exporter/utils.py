@@ -11,6 +11,7 @@ from math import *
 from pathlib import Path
 from mathutils import Vector
 import shlex
+import time
 
 def format_modelname(model_name):
     if model_name[-4:] == "_ref": model_name = model_name[:-4]
@@ -19,19 +20,19 @@ def format_modelname(model_name):
 def unselect_all_objects():
     for collection in bpy.context.scene.collection.children.values():
         for obj in collection.objects.values():
-            obj.select_set(False)
             obj.hide_set(False)
+            obj.select_set(False)
 
-def select_only_objects(objects:None):
+def select_only_objects(objects=None):
     objects = objects or []
     for collection in bpy.context.scene.collection.children.values():
         for obj in collection.objects.values():
-            obj.select_set(False)
             obj.hide_set(False)
+            obj.select_set(False)
 
     for obj in objects:
-        obj.select_set(True)
         obj.hide_set(False)
+        obj.select_set(True)
 
 
 def get_vertex_data(obj):
@@ -101,6 +102,7 @@ def get_godot_transform_of_obj(obj):
 
 def export_animation_events(obj):
     bpy.context.view_layer.objects.active = obj
+    fps = bpy.context.scene.render.fps
     markers_by_actions = {}
     for action in bpy.data.actions:
         markers = []
@@ -109,7 +111,7 @@ def export_animation_events(obj):
             markers.append({
                 "event": args[0],
                 "args": args[1:],
-                "frame": marker.frame
+                "time": 1 / fps * marker.frame
             })
         markers_by_actions[action.name] = markers
     return markers_by_actions
