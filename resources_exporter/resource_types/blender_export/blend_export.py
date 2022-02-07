@@ -43,7 +43,7 @@ except:
     from exporter_core import *
     from game_resources import *
 
-class BlendGodotExporter():
+class BlendExporter():
     def __init__(self, config:Config) -> None:
         self.config:Config = config
 
@@ -71,14 +71,19 @@ class BlendGodotExporter():
         self.export_collections()
 
     def export_collections(self):
-        for collection in bpy.context.scene.collection.children.values():
+        for collection_key in bpy.context.scene.collection.children.keys():
+            def get_collection():
+                return bpy.context.scene.collection.children.get(collection_key)
+            collection = get_collection()
             utils.unselect_all_objects()
+            collection = get_collection()
             collection.hide_viewport = False
             collection.hide_render = False
             collection.hide_select = False
 
-            
             self.export_one_collection(collection)
+
+            collection = get_collection()
             
             for obj in collection.objects.values():
                 obj.select_set(False)
@@ -90,10 +95,11 @@ class BlendGodotExporter():
             model.export()
         return model
 
-def main():
-    raw_resources_folder:Path = Path(sys.argv[-3]).resolve()
-    output_folder:Path = Path(sys.argv[-2]).resolve()
-    game_root = Path(sys.argv[-1]).resolve()
+def make_config_from_args():
+    raw_resources_folder:Path = Path(sys.argv[-4]).resolve()
+    output_folder:Path = Path(sys.argv[-3]).resolve()
+    game_root = Path(sys.argv[-2]).resolve()
+    config_filepath = Path(sys.argv[-1]).resolve()
     filepath = Path(bpy.data.filepath).resolve()
 
     config = Config()
@@ -101,11 +107,18 @@ def main():
     config.game_resources_dir = output_folder
     config.raw_resources_folder = raw_resources_folder
     config.project_filepath = filepath
+    config.external_config = {}
+    if config_filepath.exists():
+        config.external_config.update(json.loads(config_filepath.read_text()))
 
-    # config.object_processors.add(ObjectProcessor("processing.snow_maker"))
+    return config
 
-    exporter = BlendGodotExporter(config)
+def export_project():
+    """  setup and call export on `BlendExporter`"""
+    config = make_config_from_args()
+
+    exporter = BlendExporter(config)
     exporter.export_project()
 
 if __name__ == '__main__':
-    main()
+    export_project()

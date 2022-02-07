@@ -1,3 +1,4 @@
+from .. import utils
 from os import stat
 import os
 from pathlib import Path
@@ -14,20 +15,22 @@ import subprocess
 CFD = Path(__file__).parent.resolve()
 
 class ExportConfig(Storable):
+    class PropertyException(Exception):
+        def __init__(self, key:str, message:str, *args) -> None:
+            self.key = key
+            self.message = message
+            super().__init__(*args)
+        def __str__(self) -> str:
+            return f"invalid value of config property '{self.key}' : {self.message}"
+
     raw_folder: PathField = Path("resources")
     output_folder: PathField = Path("output")
     output_root: PathField = Path("")
     verbose: bool = False
     image_magic_cmd: fields.Str() = "convert"
-    blender_exporter_script: fields.Optional(PathField) = CFD/"blender_exporter/blend_export.py"
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-
-    def normalize(self):
-        self.raw_folder = self.raw_folder.resolve()
-        self.output_folder = self.output_folder.resolve()
-        self.output_root = self.output_root.resolve()
 
 class ExportError(Exception):
     def __init__(self, filepath, message) -> None:
@@ -57,16 +60,17 @@ class Resource:
                 pass
 
     @property
-    def dst_filepath(self):
+    def dst_filepath(self)->Path:
         dst_filepath = self.filepath.relative_to(self.config.raw_folder)
         dst_filepath = self.config.output_folder / dst_filepath
         return dst_filepath
 
-    def make_dirs_to_file(self, filepath:Path):
-        filepath.parent.mkdir(parents=True, exist_ok=True)
+    @property
+    def pure_name(self)->str:
+        return self.filepath.with_suffix("").name
 
     def export(self, **kwargs):
-        self.make_dirs_to_file(self.dst_filepath)
+        utils.make_dirs_to_file(self.dst_filepath)
         shutil.copy(self.filepath, self.dst_filepath)
 
     @staticmethod

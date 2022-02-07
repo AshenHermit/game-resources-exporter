@@ -1,4 +1,5 @@
 import argparse
+import json
 import pathlib
 import pip
 import godot_parser as gp
@@ -62,5 +63,22 @@ class Config:
     game_resources_dir:Path
     raw_resources_folder:Path
     project_filepath:Path
+    external_config:dict
 
     object_processors: ExportPluginsLibrary = ExportPluginsLibrary()
+
+    def get(self, key:str, default):
+        return getattr(self, key, default)
+
+    @staticmethod
+    def load_from_file(filepath:Path):
+        try:
+            data = json.loads(filepath.read_text)
+        except:
+            print("failed to load config")
+            data = {}
+        config = Config()
+        config.__dict__.update(data)
+        return config
+        
+

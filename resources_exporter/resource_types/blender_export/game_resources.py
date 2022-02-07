@@ -64,6 +64,16 @@ class GameResource():
 
     @property
     def output_path(self)->Path:
+        """`<out_resources_dir> / <file_relative_to_raw_resources_dir> ` 
+        ```t
+        if
+        filepath           = "./resources/keke/file.png"
+        raw_resources      = "./resources/"
+        game_resources_dir = "./project/assets/"
+        then
+        output_path        = "./project/assets/keke/file.png"
+        ```
+        """
         rel_filepath = self.config.project_filepath.with_name(self.name)
         rel_filepath = rel_filepath.relative_to(self.config.raw_resources_folder)
         output_path = self.config.game_resources_dir / rel_filepath
@@ -149,8 +159,26 @@ class ModelResource(GameResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
-        self.collection = None
+        self.collection_name = "Collection"
         self.materials:list[MaterialResource] = []
+
+    @property
+    def collection(self):
+        return bpy.context.scene.collection.children[self.collection_name]
+
+    @property
+    def phy_model_name(self):
+        return self.name+"_phy"
+    @property
+    def ref_model_name(self):
+        return self.name+"_ref"
+    @property
+    def has_phy_model(self)->Path:
+        return bpy.context.scene.collection.children.find(self.phy_model_name) != -1
+    @property
+    def has_ref_model(self)->Path:
+        collections = bpy.context.scene.collection.children
+        return collections.find(self.ref_model_name) != -1 or collections.find(self.name) != -1
 
     def _process_object(self, obj):
         pass
@@ -170,7 +198,7 @@ class ModelResource(GameResource):
             if pref_pos!=-1: model_name = model_name[:pref_pos]
             model = ModelResource.VIEW_MODEL_CLASS(config)
         
-        model.collection = collection
+        model.collection_name = collection.name
         model.name = model_name
 
         materials_data = []
@@ -324,6 +352,8 @@ class PhysicsModel(ModelResource):
         self.convex = False
         """ if True - use convex geometry, if False - use concave geometry. """
 
+        self.margin = 0.04
+
         self.mesh_points = []
     
     def _process_object(self, obj):
@@ -361,6 +391,7 @@ class PhysicsModel(ModelResource):
         prop_name = "data" if not self.convex else "points"
         mesh_data_res = scene.add_sub_resource(data_res_type)
         mesh_data_res.properties[prop_name] = gp.GDObject("PoolVector3Array", *self.mesh_points)
+        mesh_data_res.properties["margin"] = self.margin
 
         shape_section = gp.GDNodeSection(
             self.collision_shape_path.with_suffix("").name, 

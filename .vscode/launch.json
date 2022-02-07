@@ -5,11 +5,33 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "kebabs addon observe",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/exporter.py",
+            "args": [
+                "observe"
+            ],
+            "cwd": "C:/Program Files/Strogino CS Portal/Garrys Mod/garrysmod/addons/Kebabs"
+        },
+        {
+            "name": "kebabs-exorcist observe",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/exporter.py",
+            "args": [
+                "observe"
+            ],
+            "cwd": "C:/Users/user/Documents/GODOT/Godot_Projects/kebabs-exorcist/"
+        },
+        {
             "name": "exporter_cli warming-place/exporter_test",
             "type": "python",
             "request": "launch",
             "program": "../exporter/export_res.py",
-            "args": ["observe"],
+            "args": [
+                "observe"
+            ],
             "cwd": "C:/Users/user/Documents/GODOT/Godot_Projects/warming-place/exporter_test/"
         },
         {
@@ -17,7 +39,9 @@
             "type": "python",
             "request": "launch",
             "program": "exporter/export_res.py",
-            "args": ["observe"],
+            "args": [
+                "observe"
+            ],
             "cwd": "C:/Users/user/Documents/GODOT/Godot_Projects/warming-place"
         },
         {
@@ -27,6 +51,6 @@
             "module": "resources_exporter.exporter",
             "console": "integratedTerminal",
             // "args": ["export_all", "-i", "../resources","-o", "\"../project/resources/\"", "-g", "\"../project/\""]
-        }
+        },
     ]
 }

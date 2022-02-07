@@ -1,3 +1,4 @@
 __pycache__/
 ./test
 resources_exporter_old/
+.vscode/

@@ -30,6 +30,7 @@ class FileInfo(Model):
 
     def is_file_changed(self)->bool:
         new_info = FileInfo.from_file(self.filepath)
+        if new_info is None: return True
         if new_info.mtime > self.mtime:
             return True
         else:
@@ -107,10 +108,18 @@ class ResourcesRegistry:
         self.res_classes_ext_map = {}
         self.register_core_resources()
 
-    def register_core_resources(self):
-        modules = utils.find_classes_in_dir(CFD/"resource_types", Resource)
+    
+    def register_resources_in_dir(self, directory:Path):
+        modules = utils.find_classes_in_dir(directory, Resource)
         for cls in modules:
             self.add_resource(cls)
+
+    def register_resources_from_plugin(self, plugin_id:str):
+        plugins_dir = CFD/"plugins"
+        self.register_resources_in_dir(plugins_dir/plugin_id)
+    
+    def register_core_resources(self):
+        self.register_resources_in_dir(CFD/"resource_types")
 
     @staticmethod
     def __normalize_extension(ext:str):
@@ -187,12 +196,17 @@ class ExportArgsRegistry():
             if "".join(filepath.suffixes) == ".export.json":
                 self.apply_export_json_file(filepath)
 
+class ExporterConfig(ExportConfig):
+    plugins: fields.List(fields.Str) = []
+
 class ResourcesExporter:
-    def __init__(self, config:ExportConfig=None) -> None:
-        self.config = config or ExportConfig()
+    def __init__(self, config:ExporterConfig=None) -> None:
+        self.config = config or ExporterConfig()
         self.files_iterator = FilesInDirIterator(self.config.raw_folder)
         self.resources_registry = ResourcesRegistry()
         self.resources_registry.register_core_resources()
+        for plugin_id in self.config.plugins:
+            self.resources_registry.register_resources_from_plugin(plugin_id)
 
         self.export_args_registry = ExportArgsRegistry()
         self.export_args_registry.load_with_files_iterator(self.files_iterator)

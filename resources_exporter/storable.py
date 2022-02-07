@@ -1,3 +1,4 @@
+import json
 from os import stat
 from pathlib import Path
 from typing import Generator
@@ -8,11 +9,16 @@ from typing import Type
 CFD = Path(__file__).parent.resolve()
 
 class PathField(fields.Field):
+    _relative_to = CFD
     def serialize(self, value):
+        if hasattr(value, "relative_to"):
+            try:
+                value = value.relative_to(PathField._relative_to)
+            except: pass
+            value = value.as_posix()
         return str(value)
     def deserialize(self, value):
-        return Path(value)
-
+        return Path(value).resolve()
 
 class Storable(Model):
     """storing class instance to json"""
@@ -21,9 +27,19 @@ class Storable(Model):
             _storage_file = CFD / (self.__class__.__name__+".json")
         self._storage_file = Path(_storage_file)
         self.__dict__.update(kwargs)
+
+    def get(self, key:str, default, save_if_attr_is_new=False):
+        if not hasattr(self, key):
+            setattr(self, key, default)
+            if save_if_attr_is_new: self.save()
+        return getattr(self, key, default)
+
+    def tune_path_field(self):
+        PathField._relative_to = self._storage_file.parent
     
     def load(self):
-        loading_key = "something_is_loading"
+        self.tune_path_field()
+        loading_key = "___something_is_loading"
         if getattr(Storable, loading_key, False):
             return None
 
@@ -33,11 +49,13 @@ class Storable(Model):
         cls = self.__class__
         if not self._storage_file.exists(): 
             return self
-        
+
         json_string = self._storage_file.read_text(
             encoding='utf-8')
-        instance = cls.from_json(json_string)
+        data_dict = json.loads(json_string)
+        instance = cls.from_dict(data_dict)
         _storage_file = self._storage_file
+        self.__dict__.update(data_dict)
         self.__dict__.update(instance.__dict__)
         self._storage_file = _storage_file
 
@@ -53,7 +71,12 @@ class Storable(Model):
         return instance
 
     def save(self):
-        json_string = self.to_json(indent=2)
+        self.tune_path_field()
+        data_dict:dict = self.__dict__.copy()
+        data_dict.update(self.to_dict())
+        for k in list(data_dict.keys()):
+            if k.startswith("_"): data_dict.pop(k)
+        json_string = json.dumps(data_dict, indent=2)
         try:
             if not hasattr(self, "_storage_file"): return False
             self._storage_file.write_text(

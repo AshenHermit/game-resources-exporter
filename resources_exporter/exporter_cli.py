@@ -5,9 +5,9 @@ from typing import Generator
 import traceback
 from typing import Type, TypeVar
 from resources_exporter.storable import Storable
-from resources_exporter.resource_types.resource_base import ExportConfig, Resource
+from resources_exporter.resource_types.resource_base import Resource
 import resources_exporter.utils as utils
-from resources_exporter.exporter import ResourcesExporter
+from resources_exporter.exporter import ResourcesExporter, ExporterConfig
 
 import argparse
 
@@ -53,7 +53,7 @@ class ExportAllResArgs(Args):
 
 class ResourcesExporterCLI():
     def __init__(self) -> None:
-        self.config = ExportConfig.load_from_file(ExportConfig, CWD/"exporter_config.json")
+        self.config = ExporterConfig.load_from_file(ExporterConfig, CWD/"exporter_config.json")
         self.resources_exporter = ResourcesExporter(self.config)
 
     def export_one_resource(self, args:ExportOneResArgs):
