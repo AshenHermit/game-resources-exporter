@@ -1,4 +1,4 @@
-## Garry's Mod addon resources Exporter
+## Garry's Mod addon resources exporter
 * `.psd` and all pure images will convert into `.vtf` and `.vmt`.
 * `.blend` export will create `.smd` files for every collection, and `.qc` (`.qc`, once created, will not be overwritten) near to `.blend` file. Then `.qc` will be used to compile `.mdl` model files in the output folder.  
 
@@ -79,6 +79,7 @@ File system example
 |           |       kebab_4.vtf
 |           |       kebab_5.vmt
 |           |       kebab_5.vtf
+|           |
 |           \---skewer
 |                   skewer.vmt
 |

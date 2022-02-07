@@ -66,7 +66,7 @@ class Storable(Model):
     
     @staticmethod
     def load_from_file(cls, storage_file:Path):
-        instance = cls(_storage_file=storage_file)
+        instance:Storable = cls(_storage_file=storage_file)
         instance.load()
         return instance
 

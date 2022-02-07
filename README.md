@@ -27,7 +27,8 @@ exporter_config.json
   "raw_folder": "resources",
   "output_folder": "project/resources",
   "output_root": "project",
-  "verbose": true
+  "verbose": true,
+  "plugins": []
 }
 ```
 
@@ -77,8 +78,25 @@ File system example
 
 <br />
 
+## CLI usage
+```
+> python exporter.py --help
+usage: exporter.py [-h] {one,all,init,observe} ...
+
+positional arguments:
+  {one,all,init,observe}
+                        sub-command help
+    one                 export one resource
+    all                 export all resources
+    init                init exporter workspace, setup config
+    observe             start observing files changes to export them
+
+optional arguments:
+  -h, --help            show this help message and exit
+```
+
 ## Plugins
-* ### [Garry's Mod addon resources Exporter](resources_exporter/plugins/garrys_mod)
+* ### [Garry's Mod addon resources exporter](resources_exporter/plugins/garrys_mod)
 
 <br />
 
