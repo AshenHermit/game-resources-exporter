@@ -96,7 +96,7 @@ optional arguments:
 ```
 
 ## Plugins
-* ### [Garry's Mod addon resources exporter](resources_exporter/plugins/garrys_mod)
+* ### [Source Engine game resources exporter](resources_exporter/plugins/source_game)
 
 <br />
 
