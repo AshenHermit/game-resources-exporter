@@ -1,10 +1,10 @@
 TODO: write about blender project organization
 
-# Game Resources Exporter v0.8
+# Game Resources Exporter v0.84
 The game can have a huge number of models, textures, and other resources that need to be exported to the desired format that the engine reads.  
 Doing all this manually is boring, time consuming, and generally distracts from the creative process. It is better to leave this task to an automated exporter, plus - strict export rules will give a more stable resource storage architecture.  
 This exporter detecting files changes in real time, identifies them, and exports according to the given rules. Its also using separate folders, one for raw resoureces, whose changes will be observed, and one for exported files, which you use in game.  
-Exporter was oriented on [Godot](https://godotengine.org), but its not a problem to use it in any different way - for example, [here](resources_exporter/plugins/garrys_mod) is the plugin for GMod addons resources export.  
+Exporter was oriented on [Godot](https://godotengine.org), but its not a problem to use it in any different way - for example, [here](resources_exporter/plugins/source_game) is the plugin for *Source* game resources export.  
 
 ## Features
 * Individual Blender project exporter with configurable export using *custom properties* of objects.
@@ -26,7 +26,7 @@ exporter_config.json
   "image_magic_cmd": "convert",
   "raw_folder": "resources",
   "output_folder": "project/resources",
-  "output_root": "project",
+  "game_root": "project",
   "verbose": true,
   "plugins": []
 }

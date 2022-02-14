@@ -57,15 +57,17 @@ class GameResource():
         for key in props.keys():
             value = getattr(self, key, None)
             if type(value) == bool:
-                setattr(self, key, 
-                    props[key]==1)
+                try:
+                    setattr(self, key, 
+                        int(props[key])==1)
+                except: pass
             else:
                 setattr(self, key, props[key])
 
     @property
     def output_path(self)->Path:
         """`<out_resources_dir> / <file_relative_to_raw_resources_dir> ` 
-        ```t
+        ```text
         if
         filepath           = "./resources/keke/file.png"
         raw_resources      = "./resources/"

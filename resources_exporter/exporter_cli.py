@@ -9,6 +9,8 @@ from resources_exporter.resource_types.resource_base import Resource
 import resources_exporter.utils as utils
 from resources_exporter.exporter import ResourcesExporter, ExporterConfig
 
+import colorama
+
 import argparse
 
 CFD = Path(__file__).parent.resolve()
@@ -65,6 +67,11 @@ class ResourcesExporterCLI():
     def init_workspace(self, args:InitArgs):
         self.resources_exporter.config.save()
 
+        bat_file = CWD / "run_resources_exporter.bat"
+        bat_text = f"python \"{CFD/'../exporter.py'}\" observe" + "\n"
+        bat_text += "pause"
+        bat_file.write_text(bat_text)
+
     def start_observing(self, args:ObserveArgs):
         self.resources_exporter.start_observing()
 
@@ -99,6 +106,8 @@ class ResourcesExporterCLI():
             parser.print_help()
 
 def main():
+    colorama.init()
+    
     cli = ResourcesExporterCLI()
     cli.run()
 

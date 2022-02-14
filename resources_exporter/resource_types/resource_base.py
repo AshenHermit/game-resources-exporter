@@ -1,3 +1,4 @@
+from functools import cache
 from .. import utils
 from os import stat
 import os
@@ -11,6 +12,7 @@ from resources_exporter.storable import Storable, PathField
 from serde import Model, fields
 import shutil
 import subprocess
+from termcolor import colored
 
 CFD = Path(__file__).parent.resolve()
 
@@ -25,7 +27,7 @@ class ExportConfig(Storable):
 
     raw_folder: PathField = Path("resources")
     output_folder: PathField = Path("output")
-    output_root: PathField = Path("")
+    game_root: PathField = Path("")
     verbose: bool = False
     image_magic_cmd: fields.Str() = "convert"
 
@@ -41,13 +43,26 @@ class ExportError(Exception):
         return f"Failed to export a resource \"{self.filepath}\" : {self.message}"
 
 class Resource:
+    _subclasses = set()
+
     def __init__(self, filepath:Path, config:ExportConfig=None) -> None:
         self.filepath = filepath.resolve()
         self.config = config or ExportConfig()
 
+    @staticmethod
+    def _give_subclass(subcls):
+        Resource._subclasses.add(subcls)
+
+    @staticmethod
+    def _get_max_name_length():
+        length = max(map(lambda x: len(x.__name__)+2, Resource._subclasses))
+        return length
+
     def __str__(self) -> str:
         short_path = self.filepath.relative_to(self.config.raw_folder).as_posix()
-        return f"<{self.__class__.__name__:<16} \"{short_path}\">"
+        name = self.__class__.__name__
+        name += " "*int(max(self._get_max_name_length()-len(name), 0))
+        return f"<{name} \"{short_path}\">"
 
     def run_command(self, cmd):
         args = shlex.split(cmd)
@@ -61,6 +76,16 @@ class Resource:
 
     @property
     def dst_filepath(self)->Path:
+        """`<out_resources_dir> / <file_relative_to_raw_resources_dir> ` 
+        ```t
+        if
+        filepath           = "./resources/keke/file.png"
+        raw_resources      = "./resources/"
+        game_resources_dir = "./project/assets/"
+        then
+        output_path        = "./project/assets/keke/file.png"
+        ```
+        """
         dst_filepath = self.filepath.relative_to(self.config.raw_folder)
         dst_filepath = self.config.output_folder / dst_filepath
         return dst_filepath
@@ -75,4 +100,8 @@ class Resource:
 
     @staticmethod
     def get_extensions():
+        return []
+
+    @staticmethod
+    def get_dependencies():
         return []

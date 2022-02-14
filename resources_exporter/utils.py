@@ -3,6 +3,7 @@ from pathlib import Path
 import importlib
 import inspect
 import sys
+import traceback
 
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()

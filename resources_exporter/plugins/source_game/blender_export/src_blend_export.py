@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import typing
 import os
+import datetime
 
 CFD = Path(__file__).parent.resolve()
 try:
@@ -15,54 +16,8 @@ import sys
 import argparse
 import subprocess
 
-class QCFileMaker():
-    class CollisionModel():
-        def __init__(self) -> None:
-            self.mass = -1
-            self.concave = False
-            self.phy_smd = "model_phy.smd"
-            self.surfaceprop = "plastic"
-        
-        def render(self):
-            qc = ""
-            qc += f'$surfaceprop "{self.surfaceprop}"\n'
-            qc += f'$collisionmodel "{self.phy_smd}"\n'
-            qc += '{\n'
-
-            if self.mass == -1: qc += f'    $automass\n'
-            else:               qc += f'    $mass {self.mass}\n'
-
-            if self.concave: qc += f'    $concave\n'
-
-            qc += '}\n'
-            qc += '\n'
-            return qc
-
-    def __init__(self, filepath:Path=None) -> None:
-        self.filepath: Path = filepath
-
-        self.modelname = "model"
-        self.cdmaterials = "models/id/model"
-        self.body_name = "body"
-        self.body_smd = "model_ref.smd"
-        self.idle_sequence_smd = "model_ref.smd"
-
-        self.collisionmodel:QCFileMaker.CollisionModel = None
-
-    def render(self):
-        qc = ""
-        qc += f'$modelname "{self.modelname}"\n'
-        qc += f'$cdmaterials "{self.cdmaterials}"\n'
-        qc += f'$body {self.body_name} "{self.body_smd}"\n'
-        qc += f'$sequence idle "{self.idle_sequence_smd}"\n'
-        qc += '\n'
-        if self.collisionmodel is not None:
-            qc += self.collisionmodel.render()
-        return qc
-
-    def write(self):
-        self.filepath.parent.mkdir(parents=True, exist_ok=True)
-        self.filepath.write_text(self.render())
+sys.path.append(str(CFD.resolve()))
+from qc_renderer import QCFileMaker
 
 class MDLCompiler():
     def __init__(self, studiomdl_exe:str, studiomdl_game_path:Path, mdl_filepath:Path, qc_filepath:Path) -> None:
@@ -79,16 +34,11 @@ class MDLCompiler():
         # dont write qc if its already exists
         if not self.qc_maker.filepath.exists():
             self.qc_maker.write()
-        
-        cmd = f'"{self.studiomdl_exe}" -game "{self.studiomdl_game_path}" -nop4 -verbose "{self.qc_maker.filepath}"'
-        with subprocess.Popen(cmd) as proc: proc.wait()
-        
-        exported_dir = (self.studiomdl_game_path/"models")
-        for file in exported_dir.glob(self.filepath.with_suffix("").name+".*"):
-            shutil.copy(file, self.export_dir/file.name)
-            os.remove(file)
+        else:
+            # this will trigger exporter to compile model
+            self.qc_maker.update_file_mtime()
 
-class GMModel(ModelResource):
+class SourceModel(ModelResource):
     MDL_COMPILERS:typing.Dict[str, MDLCompiler] = {}
 
     def __init__(self, config: Config = None, name: str = "") -> None:
@@ -103,16 +53,16 @@ class GMModel(ModelResource):
         return self.config.external_config["studiomdl_executable"]
     @property
     def studiomdl_game_path(self):
-        return self.config.external_config["studiomdl_game_path"]
+        return self.config.game_root
 
     @property
     def mdl_compiler(self) -> MDLCompiler:
-        if self.name not in GMModel.MDL_COMPILERS:
+        if self.name not in SourceModel.MDL_COMPILERS:
             mdl_compiler = MDLCompiler(
                 self.studiomdl_executable, self.studiomdl_game_path, 
                 self.output_mdl, self.qc_filepath)
-            GMModel.MDL_COMPILERS[self.name] = mdl_compiler
-        return GMModel.MDL_COMPILERS[self.name]
+            SourceModel.MDL_COMPILERS[self.name] = mdl_compiler
+        return SourceModel.MDL_COMPILERS[self.name]
 
     @property
     def qc_maker(self) -> QCFileMaker:
@@ -121,6 +71,7 @@ class GMModel(ModelResource):
     def export_smd(self):
         self.select_related_objects()
         bpy.context.scene.vs.export_path = "//"
+        bpy.context.scene.vs.export_format = 'SMD'
         bpy.ops.export_scene.smd(collection=self.collection.name)
 
     @property
@@ -163,7 +114,7 @@ class GMModel(ModelResource):
     def tune_qc_maker(self):
         pass
 
-class GMViewModel(GMModel):
+class SourceViewModel(SourceModel):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
@@ -174,7 +125,7 @@ class GMViewModel(GMModel):
         self.qc_maker.body_smd = self.smd_filepath.name
         self.qc_maker.idle_sequence_smd = self.smd_filepath.name
 
-class GMPhysicsModel(GMModel):
+class SourcePhysicsModel(SourceModel):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
@@ -182,6 +133,8 @@ class GMPhysicsModel(GMModel):
         self.mass = -1
         self.concave = False
         self.surfaceprop = "plastic"
+        self.prop = False
+        self.prop_base = "Plastic.Small"
 
     def tune_qc_maker(self):
         cm = QCFileMaker.CollisionModel()
@@ -190,12 +143,22 @@ class GMPhysicsModel(GMModel):
         cm.concave = self.concave
         cm.phy_smd = self.smd_filepath.name
         self.qc_maker.collisionmodel = cm
+        
+        print(self.prop_base)
+        print(self.surfaceprop)
+        print(self.prop)
+
+        if self.prop:
+            pr = QCFileMaker.PropRenderer()
+            pr.base = self.prop_base
+            self.qc_maker.prop_data_renderer = pr 
+
     
-ModelResource.VIEW_MODEL_CLASS = GMViewModel
-ModelResource.PHYSICS_MODEL_CLASS = GMPhysicsModel
+ModelResource.VIEW_MODEL_CLASS = SourceViewModel
+ModelResource.PHYSICS_MODEL_CLASS = SourcePhysicsModel
 
 if __name__ == '__main__':
     export_project()
 
-    for mdl_compiler in GMModel.MDL_COMPILERS.values():
+    for mdl_compiler in SourceModel.MDL_COMPILERS.values():
         mdl_compiler.compile()

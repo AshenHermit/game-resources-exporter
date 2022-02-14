@@ -5,6 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "goodnight observe",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/exporter.py",
+            "args": [
+                "observe"
+            ],
+            "cwd": "C:/Program Files (x86)/Steam/steamapps/common/Goodnight Meshmen/game/goodnight"
+        },
+        {
             "name": "kebabs addon observe",
             "type": "python",
             "request": "launch",

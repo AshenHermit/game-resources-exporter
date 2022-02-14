@@ -21,7 +21,7 @@ class BlenderModel(ModelResource):
     def export_using_script(self, blend_export_script:Path):
         raw_resources_folder = self.config.raw_folder
         export_folder = self.config.output_folder
-        game_root = self.config.output_root
+        game_root = self.config.game_root
         cmd = f'blender "{self.filepath.as_posix()}" --background --python "{blend_export_script.as_posix()}"'
         str_args = [
             raw_resources_folder.as_posix(),

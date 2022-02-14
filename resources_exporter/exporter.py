@@ -1,14 +1,16 @@
 import argparse
+from functools import cache, cached_property, reduce
 import json
 from os import stat
 import os
 from pathlib import Path
+from threading import Lock, RLock
 import time
-from tracemalloc import start
-from turtle import Turtle
 from typing import Generator
 import traceback
-from typing import Type, TypeVar
+from typing import Type
+from termcolor import colored
+
 from resources_exporter.storable import PathField, Storable
 from resources_exporter.resource_types.resource_base import ExportConfig, Resource
 import resources_exporter.utils as utils
@@ -85,13 +87,16 @@ class FilesInDirIterator:
         self.files_registry.load()
         self.directory = directory
 
-    def iterate_files(self) -> Generator[Path, None, None]:
-        for filepath in self.directory.glob("**/*"):
+    def iterate_files(self, ext=None) -> Generator[Path, None, None]:
+        pattern = "*"
+        if ext is not None: pattern = "*."+ext
+
+        for filepath in self.directory.rglob(pattern):
             if filepath.is_file():
                 yield filepath
     
-    def iterate_changed_files(self):
-        for filepath in self.iterate_files():
+    def iterate_changed_files(self, ext=None):
+        for filepath in self.iterate_files(ext=ext):
             if self.files_registry.is_file_changed(filepath):
                 yield filepath
     
@@ -107,7 +112,6 @@ class ResourcesRegistry:
         self.resource_classes = set()
         self.res_classes_ext_map = {}
         self.register_core_resources()
-
     
     def register_resources_in_dir(self, directory:Path):
         modules = utils.find_classes_in_dir(directory, Resource)
@@ -116,10 +120,42 @@ class ResourcesRegistry:
 
     def register_resources_from_plugin(self, plugin_id:str):
         plugins_dir = CFD/"plugins"
-        self.register_resources_in_dir(plugins_dir/plugin_id)
+        try:
+            self.register_resources_in_dir(plugins_dir/plugin_id)
+        except:
+            traceback.print_exc()
+            print(f"Failed to import plugin \"{plugin_id}\"")
     
     def register_core_resources(self):
         self.register_resources_in_dir(CFD/"resource_types")
+
+    @cached_property
+    def sorted_extensions(self):
+        """sorted depending on resources dependencies"""
+        exts = list(self.res_classes_ext_map.keys())
+        i = 0
+        total_iter = 0
+        while i<len(exts):
+            ext = exts[i]
+            dependencies = self.res_classes_ext_map[ext].get_dependencies()
+
+            # calculating dependency satisfaction
+            if len(dependencies)==0:
+                satisfied = True
+            else:
+                satisfactions = map(lambda dep: self.__normalize_extension(dep) in exts[:i], 
+                            dependencies)
+                satisfied = reduce(lambda x,y: x and y, satisfactions)
+            
+            # 
+            if satisfied:
+                i += 1
+            else:
+                if total_iter > len(exts)*2:
+                    raise Exception("Circular dependency")
+                exts.append(exts.pop(i))
+            total_iter += 1
+        return exts
 
     @staticmethod
     def __normalize_extension(ext:str):
@@ -129,10 +165,11 @@ class ResourcesRegistry:
 
     def add_resource(self, res_class):
         """
-        adds *res_class* to `self.resource_classes` and maps it to it's extensions to `self.res_classes_ext_map`
+        adds *res_class* to `self.resource_classes` and maps it by it's extensions to `self.res_classes_ext_map`
         """
         if hasattr(res_class, "get_extensions"):
             self.resource_classes.add(res_class)
+            Resource._give_subclass(res_class)
             extensions = res_class.get_extensions()
             for ext in extensions:
                 ext = self.__normalize_extension(ext)
@@ -199,6 +236,11 @@ class ExportArgsRegistry():
 class ExporterConfig(ExportConfig):
     plugins: fields.List(fields.Str) = []
 
+class ExportResult():
+    def __init__(self, resource:Resource=None, success=False) -> None:
+        self.resource:Resource = resource
+        self.success:bool = success
+
 class ResourcesExporter:
     def __init__(self, config:ExporterConfig=None) -> None:
         self.config = config or ExporterConfig()
@@ -219,30 +261,40 @@ class ResourcesExporter:
 
     def export_one_resource(self, filepath:Path):
         """ Instances Resource class and calls its `export` method"""    
+
+        export_result = ExportResult()
         
         res_class = self.resources_registry.get_res_class_by_filepath(filepath)
-        if res_class is None: return None
+        if res_class is None: return export_result
 
-        # self.print_exporting(filepath)
         resource = res_class(filepath, self.config)
+        export_result.resource = resource
+
         try:
             export_args = self.export_args_registry.get_file_export_args(filepath)
             export_kwargs = dict(export_args._get_kwargs())
             resource.export(**export_kwargs)
             print(f"exported {resource}")
-        except:
-            print(f"failed to export {resource}")
+            export_result.success = True
+        except Exception as e:
+            print(colored(f"failed to export {resource}", 'red'))
             if self.config.verbose: traceback.print_exc()
-        return resource
+            else:
+                print(" ".join(list(map(str, e.args))))
+        
+        return export_result
     
     def export_resources(self):
-        resources = []
-        for filepath in self.files_iterator.iterate_changed_files():
-            res = self.export_one_resource(filepath)
-            if res is not None:
-                resources.append(res)
-            self.files_iterator.update_file_info(filepath)
-        return resources
+        results = []
+        exts = self.resources_registry.sorted_extensions
+        for ext in exts:
+            for filepath in self.files_iterator.iterate_changed_files(ext=ext):
+                result = self.export_one_resource(filepath)
+                results.append(result)
+
+                if result.success:
+                    self.files_iterator.update_file_info(filepath)
+        return results
 
     def start_observing(self):
         print()
@@ -251,41 +303,62 @@ class ResourcesExporter:
 
         def elapsed_time_str():
             now = datetime.datetime.now()
-            elapsed_time = (now - start_date)
+            elapsed_time = (now - start_date) 
             s = utils.strfdelta(elapsed_time)
             return f"{s:>9}"
+
+        def current_time():
+            now = datetime.datetime.now()
+            return now.strftime("%H:%M")
             
         def print_status(erase_last=True):
-            s = f"| observing changes... {elapsed_time_str()} |   "
+            message = "observing"
+            if ResourcesExporter.HAS_SOMETHING_TO_EXPORT:
+                message = "exporting"
+            s = f"| {message}... {current_time()} {elapsed_time_str()} |   "
+            if ResourcesExporter.HAS_SOMETHING_TO_EXPORT: s+="\n"
             if erase_last: print("\r"+s, end="")
             else: print(s)
 
-        resources = self.export_resources()
+
         print_status()
-        
+
         should_close = False
+        observer = Observer()
+
         def on_change():
             try:
-                resources = self.export_resources()
-                if len(resources)>0:
-                    pass
+                observer._lock.acquire()
+                ResourcesExporter.HAS_SOMETHING_TO_EXPORT = True
+                observer._lock.release()
             except:
                 traceback.print_exc()
 
         event_handler = FileSystemCallbackEventHandler(on_change)
-        observer = Observer()
         observer.schedule(event_handler, str(self.config.raw_folder), recursive=True)
         observer.start()
+
+        ResourcesExporter.HAS_SOMETHING_TO_EXPORT = True
+
         while not should_close:
             try:
                 print_status()
-                time.sleep(1)
+                if ResourcesExporter.HAS_SOMETHING_TO_EXPORT:
+                    ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
+                    print()
+                    self.export_resources()
+                    print()
+
+                time.sleep(0.1)
             except KeyboardInterrupt:
                 should_close = True
         observer.stop()
         observer.join()
 
         print()
+
+ResourcesExporter.EXPORT_QUEUE = []
+ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
 
 class FileSystemCallbackEventHandler(FileSystemEventHandler):
     def __init__(self, callback) -> None:

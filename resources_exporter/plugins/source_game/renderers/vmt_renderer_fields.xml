@@ -1,0 +1,23 @@
+<props>
+    <command name="basetexture"      type="Path" default="None"/>
+    <command name="bumpmap"          type="Path" default="None"/>
+    <command name="basetexture2"     type="Path" default="None"/>
+    <command name="bumpmap2"         type="Path" default="None"/>
+    <command name="envmap"           type="Path" default="None"/>
+    <command name="envmapmask"       type="Path" default="None"/>
+    <command name="detail"           type="Path" default="None"/>
+
+    <command name="surfaceprop"      type="str"  default="None"/>
+    <command name="surfaceprop2"     type="str"  default="None"/>
+
+    <command name="additive"         type="bool" default="False"/>
+    <command name="alphatest"        type="bool" default="False"/>
+    <command name="envmapcontrast"   type="bool" default="False"/>
+    <command name="envmapsaturation" type="bool" default="False"/>
+    <command name="nocull"           type="bool" default="False"/>
+    <command name="nodecal"          type="bool" default="False"/>
+    <command name="nolod"            type="bool" default="False"/>
+    <command name="translucent"      type="bool" default="False"/>
+    <command name="vertexalpha"      type="bool" default="False"/>
+    <command name="vertexcolor"      type="bool" default="False"/>
+</props>

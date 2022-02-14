@@ -1,6 +1,8 @@
 godot-parser
 serde
 watchdog
+termcolor
+colorama
 
 mock
 pytest-mock
