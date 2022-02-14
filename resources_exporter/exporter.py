@@ -129,8 +129,8 @@ class ResourcesRegistry:
     def register_core_resources(self):
         self.register_resources_in_dir(CFD/"resource_types")
 
-    @cached_property
-    def sorted_extensions(self):
+    @cache
+    def _get_sorted_extensions(self, cache_key):
         """sorted depending on resources dependencies"""
         exts = list(self.res_classes_ext_map.keys())
         i = 0
@@ -156,6 +156,11 @@ class ResourcesRegistry:
                 exts.append(exts.pop(i))
             total_iter += 1
         return exts
+
+    @property
+    def sorted_extensions(self):
+        """sorted depending on resources dependencies"""
+        return self._get_sorted_extensions(str(self.resource_classes))
 
     @staticmethod
     def __normalize_extension(ext:str):
@@ -276,6 +281,7 @@ class ResourcesExporter:
             resource.export(**export_kwargs)
             print(f"exported {resource}")
             export_result.success = True
+
         except Exception as e:
             print(colored(f"failed to export {resource}", 'red'))
             if self.config.verbose: traceback.print_exc()
@@ -344,14 +350,15 @@ class ResourcesExporter:
             try:
                 print_status()
                 if ResourcesExporter.HAS_SOMETHING_TO_EXPORT:
-                    ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
                     print()
                     self.export_resources()
                     print()
+                    ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
 
                 time.sleep(0.1)
             except KeyboardInterrupt:
                 should_close = True
+        
         observer.stop()
         observer.join()
 
