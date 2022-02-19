@@ -47,3 +47,22 @@ def strfdelta(tdelta):
 
 def make_dirs_to_file(filepath:Path):
     filepath.parent.mkdir(parents=True, exist_ok=True)
+
+def cut_path(path, max_size=5):
+    if not path:
+        return path
+
+    parts = list(Path(path).parts)
+
+    path = Path(parts[0])
+    for part in parts[1:-1]:
+        path /= part
+        if len(str(path)) >= max_size:
+            path /= '...'
+            break
+    if len(parts) > 1:
+        path /= parts[-1]
+    return path
+
+def normalize_extension(ext:str):
+    return ext.replace(".", "").lower()

@@ -68,8 +68,10 @@ class Resource:
         args = shlex.split(cmd)
         if self.config.verbose:
             print(cmd)
-            with subprocess.Popen(args, shell=True) as proc:
-                pass
+            subprocess.STDOUT = sys.stdout
+            process = subprocess.Popen(args, stdout=subprocess.PIPE, shell=True)
+            for c in iter(lambda: process.stdout.read(1), b''): 
+                sys.stdout.write(c.decode('utf-8'))
         else:
             with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True) as proc:
                 pass

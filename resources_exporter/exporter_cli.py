@@ -55,8 +55,7 @@ class ExportAllResArgs(Args):
 
 class ResourcesExporterCLI():
     def __init__(self) -> None:
-        self.config = ExporterConfig.load_from_file(ExporterConfig, CWD/"exporter_config.json")
-        self.resources_exporter = ResourcesExporter(self.config)
+        self.resources_exporter = ResourcesExporter()
 
     def export_one_resource(self, args:ExportOneResArgs):
         self.resources_exporter.export_one_resource(args.file)
@@ -73,7 +72,7 @@ class ResourcesExporterCLI():
         bat_file.write_text(bat_text)
 
     def start_observing(self, args:ObserveArgs):
-        self.resources_exporter.start_observing()
+        self.resources_exporter.start_observing_loop()
 
     def make_parser(self):
         parser = argparse.ArgumentParser()

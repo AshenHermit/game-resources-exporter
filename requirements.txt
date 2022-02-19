@@ -1,6 +1,9 @@
-godot-parser
 serde
 watchdog
+pyqt5
+godot-parser
+
+ansi2html
 termcolor
 colorama
 

@@ -9,100 +9,21 @@ import time
 from typing import Generator
 import traceback
 from typing import Type
+import typing
 from termcolor import colored
 
-from resources_exporter.storable import PathField, Storable
-from resources_exporter.resource_types.resource_base import ExportConfig, Resource
-import resources_exporter.utils as utils
+from .storable import PathField, Storable
+from .resource_types.resource_base import ExportConfig, Resource
+from . import utils
 from serde import Model, fields
 import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
+from .file_system import *
+
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
-
-class FileInfo(Model):
-    mtime: float
-    filepath: PathField
-
-    def __init__(self, mtime=None, filepath:Path=None) -> None:
-        self.mtime:float = mtime or 0.0
-        self.filepath:Path = filepath
-
-    def is_file_changed(self)->bool:
-        new_info = FileInfo.from_file(self.filepath)
-        if new_info is None: return True
-        if new_info.mtime > self.mtime:
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def from_file(filepath:Path):
-        filepath = Path(filepath)
-        if not filepath.exists(): return None
-
-        fileinfo = FileInfo(None, filepath)
-        stat = filepath.stat()
-        fileinfo.mtime = stat.st_mtime
-        return fileinfo
-
-class FilesRegistry(Storable):
-    registry: fields.Dict(str, FileInfo)
-
-    def __init__(self, registry=None, _storage_file:Path=None, **kwargs) -> None:
-        self.registry = registry or {}
-        super().__init__(_storage_file=_storage_file, **kwargs)
-
-    def get_file_info(self, filepath:Path)->FileInfo:
-        filepath = Path(filepath).resolve()
-        key = filepath.as_posix()
-        info = None
-        if key in self.registry:
-            info = self.registry[key]
-        return info
-
-    def is_file_changed(self, filepath:Path)->bool:
-        filepath = Path(filepath).resolve()
-        info = self.get_file_info(filepath)
-        if info:
-            return info.is_file_changed()
-        return True
-
-    def update_file_info(self, filepath:Path):
-        filepath = Path(filepath).resolve()
-        if filepath.exists():
-            fileinfo = FileInfo.from_file(filepath)
-            if fileinfo:
-                key = filepath.as_posix()
-                self.registry[key] = fileinfo
-                return fileinfo
-        return None
-
-class FilesInDirIterator:
-    def __init__(self, directory: Path) -> None:
-        storage_file = CWD / "files_registry.json"
-        self.files_registry = FilesRegistry(_storage_file=storage_file)
-        self.files_registry.load()
-        self.directory = directory
-
-    def iterate_files(self, ext=None) -> Generator[Path, None, None]:
-        pattern = "*"
-        if ext is not None: pattern = "*."+ext
-
-        for filepath in self.directory.rglob(pattern):
-            if filepath.is_file():
-                yield filepath
-    
-    def iterate_changed_files(self, ext=None):
-        for filepath in self.iterate_files(ext=ext):
-            if self.files_registry.is_file_changed(filepath):
-                yield filepath
-    
-    def update_file_info(self, filepath:Path):
-        self.files_registry.update_file_info(filepath)
-        self.files_registry.save()
 
 class ResourcesRegistry:
     """
@@ -164,8 +85,7 @@ class ResourcesRegistry:
 
     @staticmethod
     def __normalize_extension(ext:str):
-        ext = ext.lower()
-        ext = ext.replace(".", "")
+        ext = utils.normalize_extension(ext)
         return ext
 
     def add_resource(self, res_class):
@@ -193,6 +113,29 @@ class ResourcesRegistry:
         """
         ext = self.__normalize_extension(filepath.suffix)
         return self.get_res_class_by_ext(ext)
+
+class TimerStatusPrinter():
+    def __init__(self) -> None:
+        self.start_time = datetime.datetime.now()
+        self.message = ""
+
+    def start_timer(self):
+        self.start_time = datetime.datetime.now()
+
+    def elapsed_time_str(self):
+        now = datetime.datetime.now()
+        elapsed_time = (now - self.start_time)
+        s = utils.strfdelta(elapsed_time)
+        return f"{s:>9}"
+
+    def current_time(self):
+        now = datetime.datetime.now()
+        return now.strftime("%H:%M")
+    
+    def print_status(self, erase_last=True, end=""):
+        s = f"| {self.message}... {self.current_time()} {self.elapsed_time_str()} |   "
+        if erase_last: print("\r"+s, end=end)
+        else: print(s)
 
 class ExportArgsRegistry():
     def __init__(self) -> None:
@@ -248,7 +191,10 @@ class ExportResult():
 
 class ResourcesExporter:
     def __init__(self, config:ExporterConfig=None) -> None:
-        self.config = config or ExporterConfig()
+        self.config = config
+        if self.config is None:
+            self.config = ExporterConfig.load_from_file(ExporterConfig, CWD/"exporter_config.json")
+        
         self.files_iterator = FilesInDirIterator(self.config.raw_folder)
         self.resources_registry = ResourcesRegistry()
         self.resources_registry.register_core_resources()
@@ -259,6 +205,8 @@ class ResourcesExporter:
         self.export_args_registry.load_with_files_iterator(self.files_iterator)
 
         self.config.save()
+
+        self.observing_status_printer = TimerStatusPrinter()
     
     def print_exporting(self, filepath:Path):
         short_path = (filepath.relative_to(self.config.raw_folder).as_posix())
@@ -279,7 +227,7 @@ class ResourcesExporter:
             export_args = self.export_args_registry.get_file_export_args(filepath)
             export_kwargs = dict(export_args._get_kwargs())
             resource.export(**export_kwargs)
-            print(f"exported {resource}")
+            print(colored(f"exported {resource}", "green"))
             export_result.success = True
 
         except Exception as e:
@@ -291,6 +239,7 @@ class ResourcesExporter:
         return export_result
     
     def export_resources(self):
+        """uses self.export_one_resource(res_path)"""
         results = []
         exts = self.resources_registry.sorted_extensions
         for ext in exts:
@@ -302,70 +251,70 @@ class ResourcesExporter:
                     self.files_iterator.update_file_info(filepath)
         return results
 
-    def start_observing(self):
+    # observing
+    _has_something_to_export = False
+    observe_start_date = datetime.datetime.now()
+    files_observer: Observer = None
+    is_observing: Observer = None
+    observe_print_status = True
+
+    def start_observing_loop(self):
         print()
-
-        start_date = datetime.datetime.now()
-
-        def elapsed_time_str():
-            now = datetime.datetime.now()
-            elapsed_time = (now - start_date) 
-            s = utils.strfdelta(elapsed_time)
-            return f"{s:>9}"
-
-        def current_time():
-            now = datetime.datetime.now()
-            return now.strftime("%H:%M")
-            
-        def print_status(erase_last=True):
-            message = "observing"
-            if ResourcesExporter.HAS_SOMETHING_TO_EXPORT:
-                message = "exporting"
-            s = f"| {message}... {current_time()} {elapsed_time_str()} |   "
-            if ResourcesExporter.HAS_SOMETHING_TO_EXPORT: s+="\n"
-            if erase_last: print("\r"+s, end="")
-            else: print(s)
-
-
-        print_status()
-
-        should_close = False
-        observer = Observer()
-
-        def on_change():
+        self.start_observing()
+        while self.is_observing:
             try:
-                observer._lock.acquire()
-                ResourcesExporter.HAS_SOMETHING_TO_EXPORT = True
-                observer._lock.release()
-            except:
-                traceback.print_exc()
-
-        event_handler = FileSystemCallbackEventHandler(on_change)
-        observer.schedule(event_handler, str(self.config.raw_folder), recursive=True)
-        observer.start()
-
-        ResourcesExporter.HAS_SOMETHING_TO_EXPORT = True
-
-        while not should_close:
-            try:
-                print_status()
-                if ResourcesExporter.HAS_SOMETHING_TO_EXPORT:
-                    print()
-                    self.export_resources()
-                    print()
-                    ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
-
-                time.sleep(0.1)
+                self.update_observer()
             except KeyboardInterrupt:
-                should_close = True
-        
-        observer.stop()
-        observer.join()
-
+                self.stop_observing()
         print()
 
-ResourcesExporter.EXPORT_QUEUE = []
-ResourcesExporter.HAS_SOMETHING_TO_EXPORT = False
+    def print_status(self):
+        if not self.observe_print_status: return
+        self.observing_status_printer.message = "observing"
+        end = ""
+        if self._has_something_to_export:
+            self.observing_status_printer.message = "exporting"
+            end = "\n"
+        self.observing_status_printer.print_status(erase_last=True, end=end)
+
+    def __del__(self):
+        self.stop_observing()
+
+    def _on_some_file_change(self):
+        try:
+            self.files_observer._lock.acquire()
+            self._has_something_to_export = True
+            self.files_observer._lock.release()
+        except:
+            traceback.print_exc()
+
+    def start_observing(self):
+        self.observe_start_date = datetime.datetime.now()
+        self.observing_status_printer.start_timer()
+
+        self.print_status()
+        self.files_observer = Observer()
+        event_handler = FileSystemCallbackEventHandler(self._on_some_file_change)
+        self.files_observer.schedule(event_handler, str(self.config.raw_folder), recursive=True)
+        self.files_observer.start()
+
+        self._has_something_to_export = True
+        self.is_observing = True
+
+    def update_observer(self) -> typing.List[Resource]:
+        """returns list of exporter resources"""
+        self.print_status()
+        resources = []
+        if self._has_something_to_export:
+            self._has_something_to_export = False
+            resources = self.export_resources()
+        return resources
+
+    def stop_observing(self):
+        self.is_observing = False
+        if self.files_observer is not None:
+            self.files_observer.stop()
+            self.files_observer.join()
 
 class FileSystemCallbackEventHandler(FileSystemEventHandler):
     def __init__(self, callback) -> None:
