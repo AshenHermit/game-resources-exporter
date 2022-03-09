@@ -2,16 +2,17 @@
 
 The game can have a huge number of models, textures and other resources that need to be edited and constantly exported to the desired format that the engine reads.
 Doing all this manually is boring, long and generally distracts from the creative process. It is better to entrust this task to an automatic exporter, besides - strict export rules will provide a more stable architecture for storing resources.
-This exporter detects file changes in real time, identifies them and exports them according to the specified rules. It also uses separate folders, one for raw resources whose changes will be observed, and one for exported files that you use in the game.
-The exporter of blend projects was focused on [Godot](https://godotengine.org ), but it`s not a problem to use it in a different way - for example, [here is](resources_exporter/plugins/source_game) a plugin for exporting resources, including models, for *Source* games.
+This exporter detects file changes in real time, identifies them and exports them according to the specified rules. It uses separate folders, one for raw resources whose changes will be observed, and one for exported files that you use in the game.
+The exporter of blend projects was focused on [Godot](https://godotengine.org ), but it's not a problem to use it in a different way - for example, [here is](resources_exporter/plugins/source_game) a plugin for exporting resources, including models, for *Source* games.
 
 <div style="text-align:center; height:400px;"><img src="resources/pages/client.jpg"/></div>
 
 ## Features
 
-* User-friendly GUI client
-* Customized Blender project exporter with customizable export using *custom properties* objects.
-* Generation of Godot models, physical bodies and materials.
+* Handy GUI client
+* Expandable Blender project exporter.
+* Individual settings and functions performed for resources.
+* Tracking changes in the file system.
 * Extension with plugins.
 * One program for many individual projects.
 
