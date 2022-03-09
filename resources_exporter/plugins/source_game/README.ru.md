@@ -3,6 +3,7 @@
 ## Требует
 
 * [VTFLib](https://web.archive.org/web/20190508141002/http://nemesis.thewavelength.net/files/files/vtflib132-bin.zip). Для конвертации изображений в vtf.
+* [Blender Source Tools](http://steamreview.org/BlenderSourceTools/). Для экспорта `.smd` файлов из `.blend` проектов.
 * Некоторые исполняемые файлы, поставляемые с *Source* играми, находятся в папке *bin* .
   * **studiomdl** . Для компиляции моделей в `.mdl` .
   * **vbsp**, **vvis**, **vrad** . Для компиляции карт `.vmf` в `.bsp` .

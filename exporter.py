@@ -1,11 +1,7 @@
-import resources_exporter.exporter_cli as exporter_cli
-import resources_exporter.gui_client.exporter_gui as exporter_gui
-
-# def main():
-#     exporter_cli.main()
+import resources_exporter.gui_client.window as window
 
 def main():
-    exporter_gui.main()
+    window.main()
 
 if __name__ == '__main__':
     main()

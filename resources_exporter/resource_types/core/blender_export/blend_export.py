@@ -3,11 +3,12 @@ import os
 import subprocess
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.resolve()))
+CFD = Path(__file__).parent.resolve()
+sys.path.append(str(CFD.resolve()))
 import importlib
 
 # TODO:
-sys.path.append("C:/users/user/appdata/roaming/python/python37/site-packages")
+# sys.path.append("C:/users/user/appdata/roaming/python/python37/site-packages")
 
 def install_requirements():
     try:

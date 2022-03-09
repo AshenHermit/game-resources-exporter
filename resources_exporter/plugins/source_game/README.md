@@ -2,7 +2,8 @@
 
 ## Requires
 
-* [VTFLib](https://web.archive.org/web/20190508141002/http://nemesis.thewavelength.net/files/files/vtflib132-bin.zip). For converting images to vtf.
+* [VTFCmd](https://web.archive.org/web/20190508141002/http://nemesis.thewavelength.net/files/files/vtflib132-bin.zip). For converting images to vtf.
+* [Blender Source Tools](http://steamreview.org/BlenderSourceTools/). To export `.smd` files from `.blend` projects.
 * Some executables that comes with *Source* games in *bin* folder.
   * **studiomdl**. To compile models into `.mdl`.
   * **vbsp**, **vvis**, **vrad**. To compile `.vmf` maps into `.bsp`.

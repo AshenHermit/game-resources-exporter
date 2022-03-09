@@ -1,3 +1,4 @@
+from functools import partial
 from logging import root
 import sys
 from pathlib import Path
@@ -11,9 +12,29 @@ import os
 from ..exporter import ResourcesExporter
 from .. import utils
 
+class CustomQMenu(QMenu):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        CustomQMenu.make_menu_able_to_show_tooltip(self)
+
+    @staticmethod
+    def handle_menu_hovered(menu:QMenu, action:QAction):
+        pos = QtGui.QCursor.pos()
+        def show_tooltip():
+            if QtGui.QCursor.pos() != pos: return
+            QToolTip.showText(
+                QtGui.QCursor.pos(), action.toolTip(),
+                menu, menu.actionGeometry(action))
+        QTimer.singleShot(500, show_tooltip)
+
+    @staticmethod
+    def make_menu_able_to_show_tooltip(menu:QMenu):
+        menu.hovered.connect(partial(CustomQMenu.handle_menu_hovered, menu))
+
+
 class MenuTreeRenderer():
-    def __init__(self, menu_root: QMenuBar, parent: QWidget) -> None:
-        self.menu_root:QMenuBar = menu_root
+    def __init__(self, menu_root: QMenu, parent: QWidget=None) -> None:
+        self.menu_root:QMenu = menu_root
         self.parent = parent
         self.menus = {}
 
@@ -35,8 +56,12 @@ class MenuTreeRenderer():
 
         nodes = path.split("/")
         
-        action = QAction(nodes[-1], self.parent, **kwargs)
         menu_path = "/".join(nodes[:-1])
+        menu = self.get_menu(menu_path)
+        action = QAction(nodes[-1], menu, **kwargs)
         self.get_menu(menu_path).addAction(action)
 
         return action
+
+    def add_separator(self):
+        self.menu_root.addSeparator()

@@ -1,12 +1,70 @@
+from contextlib import contextmanager
+from dataclasses import replace
+from io import StringIO
 import os
 from pathlib import Path
 import importlib
 import inspect
+import re
 import sys
 import traceback
+import typing
+import subprocess
 
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
+
+class StdoutSplitter():
+    def __init__(self) -> None:
+        self.old_stdout=None
+        self.stream = StringIO()
+        self.stdout_read_indx = 0
+        self.capture_stdout()
+
+    def capture_stdout(self):
+        self.old_stdout = sys.stdout
+        sys.stdout = self.stream
+
+    def release_stdout(self):
+        sys.stdout = self.old_stdout
+
+    def __del__(self):
+        self.release_stdout()
+
+    def process_caret_return(self):
+        text = self.stream.getvalue()
+        cr_pos = text.rfind("\r")
+        if cr_pos==0: return
+        if cr_pos==len(text)-1: return
+        if text[cr_pos+1] == "\n": return
+        nl_pos = text[:cr_pos].rfind("\n")
+        if nl_pos==-1:
+            text = text[cr_pos:].replace("\r","")
+        else:
+            text = text[:nl_pos]+"\n"+text[cr_pos:].replace("\r","")
+            
+        self.stream = StringIO(text)
+        self.release_stdout()
+        self.capture_stdout()
+
+    def read(self):
+        self.stream.seek(self.stdout_read_indx)
+        text = self.stream.read()
+        self.stdout_read_indx += len(text)
+        self.old_stdout.write(text)
+        return text
+
+    def read_all(self):
+        self.read()
+        self.process_caret_return()
+        return self.stream.getvalue()
+
+    @staticmethod
+    @contextmanager
+    def context():
+        splitter = StdoutSplitter()
+        yield splitter
+        del splitter
 
 def find_classes_in_dir(directory:Path, base_class=object):
     directory = Path(directory)
@@ -66,3 +124,25 @@ def cut_path(path, max_size=5):
 
 def normalize_extension(ext:str):
     return ext.replace(".", "").lower()
+
+def open_folder_in_explorer(dir:Path):
+    os.startfile(str(dir)+"\\")
+
+def reveal_in_explorer(file:Path):
+    subprocess.Popen(f'explorer /select,"{file}"')
+
+def snake_case_to_title(s:str):
+    if not s: return
+    if len(s) == 1: return s.upper()
+    s = s.replace("_", " ")
+    s = s.replace("-", " ")
+    s = " ".join(map(lambda x: x[0].upper() + x[1:].lower(), s.split(" ")))
+    return s
+
+def camel_to_snake(s:str):
+    s = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', s)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s).lower()
+
+def code_name_to_title(s:str):
+    snake = camel_to_snake(s)
+    return snake_case_to_title(snake)

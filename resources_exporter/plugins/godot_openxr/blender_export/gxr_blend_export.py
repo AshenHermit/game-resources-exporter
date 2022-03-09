@@ -1,18 +1,13 @@
 import sys
 from pathlib import Path
 
-from numpy import save
-
-
 CFD = Path(__file__).parent.resolve()
+sys.path.append(str(CFD.resolve()))
 try:
-    from ....resource_types.blender_export.blend_export import *
+    from ....resource_types.core.blender_export.blend_export import *
 except:
-    sys.path.append(str((CFD/"../../../resource_types/blender_export/").resolve()))
+    sys.path.append(str((CFD/"../../../resource_types/core/blender_export/").resolve()))
     from blend_export import *
-
-import sys
-import argparse
 
 class CustomPhysicsModel(PhysicsModel):
     def __init__(self, config: Config = None, name: str = "") -> None:

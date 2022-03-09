@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Generator
 import traceback
 from typing import Type, TypeVar
-from resources_exporter.storable import Storable
-from resources_exporter.resource_types.resource_base import Resource
-import resources_exporter.utils as utils
-from resources_exporter.exporter import ResourcesExporter, ExporterConfig
+from .storable import Storable
+from .resource_types.resource_base import Resource
+from . import utils
+from .exporter import ResourcesExporter, ExporterConfig
+from .resources_registry import PluginMaker
 
 import colorama
 
@@ -16,91 +17,89 @@ import argparse
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
 
-class Args:
-    parser_help:str = ""
+def path_factory(value:str):
+    return Path(value).expanduser().resolve()
 
-    def __init__(self, **kwargs) -> None:
+class ActionUnit():
+    parser_id:str = "action"
+    parser_help:str = "base action class"
+    def __init__(self, res_exporter:ResourcesExporter) -> None:
+        self.res_exporter:ResourcesExporter = res_exporter
+    def apply_kwargs(self, **kwargs):
         self.__dict__.update(kwargs)
-
-    @staticmethod
-    def path_factory(value:str):
-        return Path(value).expanduser().resolve()
-    
-    @staticmethod
-    def add_args_to_argparser(argparser:argparse.ArgumentParser):
+    def add_args_to_argparser(self, argparser:argparse.ArgumentParser):
+        pass
+    def run(self):
         pass
 
-class ExportOneResArgs(Args):
+class ExportOneRes(ActionUnit):
+    parser_id:str = "one"
     parser_help:str = "export one resource"
+    file:Path = Path("")
+    def add_args_to_argparser(self, argparser:argparse.ArgumentParser):
+        argparser.add_argument("-f", "--file", type=path_factory)
+    def run(self):
+        self.res_exporter.export_one_resource(self.file)
 
-    def __init__(self, **kwargs) -> None:
-        self.file:Path = Path("")
-        super().__init__(**kwargs)
-
-    @staticmethod
-    def add_args_to_argparser(argparser:argparse.ArgumentParser):
-        argparser.add_argument("-f", "--file", type=Args.path_factory)
-
-class InitArgs(Args):
-    parser_help:str = "init exporter workspace, setup config"
-
-class ObserveArgs(Args):
-    parser_help:str = "start observing files changes to export them"
-
-class ExportAllResArgs(Args):
+class ExportAllRes(ActionUnit):
+    parser_id:str = "all"
     parser_help:str = "export all resources"
+    def run(self):
+        self.res_exporter.export_resources()
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+class InitExporter(ActionUnit):
+    parser_id:str = "init"
+    parser_help:str = "init exporter workspace: setup config, make batch file to run exporter"
+    for_gui:bool = False
+    def add_args_to_argparser(self, argparser:argparse.ArgumentParser):
+        argparser.add_argument("-gui", "--for-gui", action="store_true")
+    def run(self):
+        self.res_exporter.init_workspace(not self.for_gui)
+
+class Observe(ActionUnit):
+    parser_id:str = "observe"
+    parser_help:str = "start observing files changes to export them"
+    def run(self):
+        self.res_exporter.start_observing_loop()
+
+class MakePluginAction(ActionUnit):
+    parser_id:str = "new_plugin"
+    parser_help:str = "make new plugin"
+    id:str = "new_plugin"
+    use_blend_export:bool = False
+    def add_args_to_argparser(self, argparser:argparse.ArgumentParser):
+        argparser.add_argument("id", type=str)
+        argparser.add_argument("-blend", "--use-blend-export", action='store_true')
+    def run(self):
+        pm = PluginMaker(self.id, self.use_blend_export)
+        pm.make_plugin()
+        pm.edit_plugin()
 
 class ResourcesExporterCLI():
     def __init__(self) -> None:
         self.resources_exporter = ResourcesExporter()
-
-    def export_one_resource(self, args:ExportOneResArgs):
-        self.resources_exporter.export_one_resource(args.file)
-    
-    def export_resources(self, args:ExportAllResArgs):
-        self.resources_exporter.export_resources()
-
-    def init_workspace(self, args:InitArgs):
-        self.resources_exporter.config.save()
-
-        bat_file = CWD / "run_resources_exporter.bat"
-        bat_text = f"python \"{CFD/'../exporter.py'}\" observe" + "\n"
-        bat_text += "pause"
-        bat_file.write_text(bat_text)
-
-    def start_observing(self, args:ObserveArgs):
-        self.resources_exporter.start_observing_loop()
+        self.actions = []
 
     def make_parser(self):
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers(help="sub-command help")
 
-        commands = {
-            "one": (ExportOneResArgs, self.export_one_resource),
-            "all": (ExportAllResArgs, self.export_resources),
-            "init": (InitArgs, self.init_workspace),
-            "observe": (ObserveArgs, self.start_observing),
-        }
-        for key in commands:
-            args_cls, func = commands[key]
-            help = args_cls.parser_help
-            sparser = subparsers.add_parser(key, help=help)
-            args_cls.add_args_to_argparser(sparser)
-            sparser.set_defaults(func=func)
-            sparser.set_defaults(args_cls=args_cls)
+        for subcls in ActionUnit.__subclasses__():
+            action = subcls(self.resources_exporter)
+            sparser = subparsers.add_parser(action.parser_id, help=action.parser_help)
+            action.add_args_to_argparser(sparser)
+            self.actions.append(action)
+            sparser.set_defaults(action_instance=action)
 
         return parser
     
     def run(self):
         parser = self.make_parser()
         args = parser.parse_args()
-        if hasattr(args, "func"):
-            if hasattr(args, "args_cls"):
-                args = args.args_cls(**args.__dict__)
-            args.func(args)
+        if hasattr(args, "action_instance"):
+            action:ActionUnit = args.action_instance
+            action.apply_kwargs(**args.__dict__)
+            action.run()
         else:
             parser.print_help()
 

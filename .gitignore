@@ -2,3 +2,6 @@ __pycache__/
 ./test
 resources_exporter_old/
 .vscode/
+
+files_registry.json
+exporter_config.json

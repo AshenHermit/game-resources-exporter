@@ -40,6 +40,83 @@
  *  ---------------
  */
 
+QWidget#export_result_card {
+    
+}
+
+QWidget#fail_export_result_color_rect {
+    background-color: #ff5050;
+}
+QWidget#success_export_result_color_rect {
+    background-color: #7fff9d;
+}
+
+QWidget#export_result_header {
+    background-color: rgba(255,255,255, 0.07);
+}
+QWidget#export_result_header:hover {
+    background-color: rgba(255,255,255, 0.1);
+}
+QWidget#export_result_header QLabel {
+    background-color: rgba(255,255,255, 0.0);
+}
+QWidget#export_result_header_info_minor {
+    color: rgba(255,255,255, 0.6);
+}
+
+QWidget#export_result_details {
+    background-color: rgba(255,255,255, 0.03);
+}
+QWidget#export_result_details QLabel {
+    color: rgba(255,255,255, 0.6);
+}
+QWidget#export_result_details QWidget {
+    background-color: rgba(255,255,255, 0.0);
+    border: 0;
+}
+
+QWidget#export_results_panel {
+    background-color: #1d2023;
+}
+QWidget#export_results_panel QLabel {
+    background-color: rgba(255,255,255, 0.0);
+}
+
+QWidget#export_status QLabel {
+    color: rgba(255,255,255, 0.6);
+}
+
+QWidget#export_result_info_date {
+    color: rgba(255,255,255, 0.4);
+}
+
+QWidget#projects_list {
+    background-color: #1d2023;
+}
+QWidget#project_item QLabel {
+    background-color: rgba(255,255,255, 0.0);
+}
+QWidget#project_item {
+    background-color: rgba(255,255,255, 0.07);
+}
+QWidget#project_item:hover {
+    background-color: rgba(255,255,255, 0.1);
+}
+QWidget#project_item_title {
+    font-size: 12pt;
+}
+QWidget#project_item_minor {
+    color: rgba(255,255,255, 0.4);
+}
+
+QWidget#title {
+    font-size: 12pt;
+    color: rgba(255,255,255, 0.6);
+}
+QWidget#big_title {
+    font-size: 18pt;
+}
+
 QToolTip
 {
     /* 0.2ex is the smallest value that's not ignored on Windows. */

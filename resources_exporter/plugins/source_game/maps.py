@@ -1,6 +1,8 @@
 from email.mime import base
 from ...resource_types import *
 
+CFD = Path(__file__).parent.resolve()
+
 class SourceMapResource(Resource):
     @property
     def vbsp_executable(self):
@@ -25,9 +27,9 @@ class SourceMapResource(Resource):
     def compile_map(self):
         gen_args = f"-game \"{self.config.game_root}\" \"{self.filepath}\""
 
-        self.run_command(f"\"{self.vbsp_executable}\" {gen_args}")
-        self.run_command(f"\"{self.vvis_executable}\" {gen_args}")
-        self.run_command(f"\"{self.vrad_executable}\" -StaticPropLighting -StaticPropPolys -both {gen_args}")
+        self.run_program(f"\"{self.vbsp_executable}\" {gen_args}")
+        self.run_program(f"\"{self.vvis_executable}\" {gen_args}")
+        self.run_program(f"\"{self.vrad_executable}\" -StaticPropLighting -StaticPropPolys -both {gen_args}")
 
         if not self.generated_bsp_filepath.exists():
             raise Exception("Failed to generate bsp file")
@@ -43,3 +45,7 @@ class SourceMapResource(Resource):
     @staticmethod
     def get_extensions():
         return ["vmf"]
+
+    @staticmethod
+    def get_icon() -> Path:
+        return CFD/"icons/hammer.png"

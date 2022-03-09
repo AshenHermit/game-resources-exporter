@@ -244,16 +244,16 @@ class ViewModel(ModelResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
+        self.animation_events = {}
+
+        # properties
         self.format = "obj"
 
         self.render_icon = False
         self.icon_size = 64
         self.camera_look_at_z = 1.0
         self.ortho_scale = 1.0
-        #TODO: add ability to not configure camera automaticly but use already set up camera in scene
         self.auto_pos_camera = True
-
-        self.animation_events = {}
 
     def _process_object(self, obj):
         self.config.object_processors.execute_all(obj=obj)
@@ -345,6 +345,7 @@ class PhysicsModel(ModelResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
+        # properties
         self.static = False
         """ generate static body """
         self.rigid = False

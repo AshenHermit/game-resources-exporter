@@ -68,8 +68,8 @@ class FilesRegistry(Storable):
         return None
 
 class FilesInDirIterator:
-    def __init__(self, directory: Path) -> None:
-        storage_file = CWD / "files_registry.json"
+    def __init__(self, directory: Path, storage_dir: Path) -> None:
+        storage_file = storage_dir / "files_registry.json"
         self.files_registry = FilesRegistry(_storage_file=storage_file)
         self.files_registry.load()
         self.directory = directory

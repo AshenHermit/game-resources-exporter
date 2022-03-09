@@ -55,6 +55,10 @@ class SMDModel(SourceTextResource):
     def get_extensions():
         return ["smd"]
 
+    @staticmethod
+    def get_icon() -> Path:
+        return ModelResource.get_icon()
+
 class SourceQCModel(SourceTextResource):
     @property
     def studiomdl_executable(self):
@@ -66,6 +70,13 @@ class SourceQCModel(SourceTextResource):
     @property
     def cdmaterials(self):
         return self.filepath.parent.relative_to(self.config.raw_folder).as_posix()
+    @property
+    def modelname(self):
+        rel_path = self.filepath.with_suffix(".mdl").relative_to(self.config.raw_folder)
+        if str(rel_path).startswith(str("models")):
+            return rel_path.relative_to("models").as_posix()
+        else:
+            return rel_path.as_posix()
 
     def matchall(self, pattern:str):
         return list(re.finditer(pattern, self.text, flags=re.MULTILINE))
@@ -73,7 +84,7 @@ class SourceQCModel(SourceTextResource):
     def get_cmd_args(self, cmd:str):
         matches:list[re.Match] = self.matchall("^\$"+cmd+" [^\n$]+$\n")
         if len(matches) == 0: return []
-        return shlex.split(matches[0].group(0))[1:]
+        return shlex.split(matches[0].group(0).replace("\\", "/"))[1:]
     def remove_cmd(self, cmd:str):
         self.text = re.sub("^\$"+cmd+" [^\n$]+$\n", "", self.text, flags=re.MULTILINE)
         self.text = re.sub("^\$"+cmd+"\s*$\n", "", self.text, flags=re.MULTILINE)
@@ -105,6 +116,13 @@ class SourceQCModel(SourceTextResource):
             self.remove_cmd("cdmaterials")
             self.add_line_at_start(f"$cdmaterials {self.cdmaterials}")
 
+        # set proper modelname
+        cmargs = self.get_cmd_args("modelname")
+        if len(cmargs)>0 and cmargs[0] == self.modelname: pass
+        else:
+            self.remove_cmd("modelname")
+            self.add_line_at_start(f"$modelname {self.modelname}")
+
         self.remove_cmd("cd")
         self.remove_cmd("cdtexture")
         self.remove_cmd("cliptotextures")
@@ -125,7 +143,7 @@ class SourceQCModel(SourceTextResource):
                     if bmp.exists() and not psd.exists():
                         print(f'trying to convert "{bmp.name}" into psd...')
                         cmd = f"\"{self.config.image_magic_cmd}\" -colorspace RGB -transparent black  \"{bmp}\" \"{psd}\""
-                        self.run_command(cmd)
+                        self.run_program(cmd)
             except: pass
         self.remove_cmd("texrendermode")
 
@@ -139,7 +157,9 @@ class SourceQCModel(SourceTextResource):
 
     def compile_model(self):
         cmd = f'"{self.studiomdl_executable}" -game "{self.config.game_root}" -nop4 -verbose "{self.filepath}"'
-        self.run_command(cmd)
+        out = self.run_program(cmd)
+        if out.find("ERROR:")!=-1:
+            raise Exception("Some errors occurred")
         
         # studiomdl after compiling writes files into root/models folder,
         # here we are moving them in wanted directory
@@ -161,3 +181,7 @@ class SourceQCModel(SourceTextResource):
     @staticmethod
     def get_dependencies():
         return ["smd"]
+
+    @staticmethod
+    def get_icon() -> Path:
+        return CFD/"icons/model_config.png"

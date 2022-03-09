@@ -70,14 +70,14 @@ class Config:
     def get(self, key:str, default):
         return getattr(self, key, default)
 
-    @staticmethod
-    def load_from_file(filepath:Path):
+    @classmethod
+    def load_from_file(cls, filepath:Path):
         try:
             data = json.loads(filepath.read_text)
         except:
             print("failed to load config")
             data = {}
-        config = Config()
+        config = cls()
         config.__dict__.update(data)
         return config
         

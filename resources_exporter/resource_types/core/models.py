@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-from resources_exporter.resource_types.resource_base import ExportConfig, Resource
+from ..resource_base import *
+from ..plugin import *
 
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
@@ -12,6 +13,10 @@ class ModelResource(Resource):
     @staticmethod
     def get_extensions():
         return ["obj", "fbx"]
+
+    @staticmethod
+    def get_icon() -> Path:
+        return CFD/"icons/mesh.png"
 
 class BlenderModel(ModelResource):
     def export(self, **kwargs):
@@ -31,8 +36,16 @@ class BlenderModel(ModelResource):
         ]
         cmd += " " + " ".join(map(lambda x: f'"{x}"', str_args))
 
-        self.run_command(cmd)
+        self.run_program(cmd)
 
     @staticmethod
     def get_extensions():
         return ["blend"]
+
+    @staticmethod
+    def get_icon() -> Path:
+        return CFD/"icons/blender.png"
+
+@plugin_cmd("Plugin CMD Test", "Just Testing")
+def plugin_cmd_test():
+    print("PLUGIN CMD TEST!!!")
