@@ -104,6 +104,7 @@ Example of a file system
     > python exporter.py
 
 <div style="height:128px;"><img src="resources/pages/projects_manager.jpg"/></div>
+
 A project selection window will appear. Here you can open new and previously opened work folders. Also, using the context menu, you can delete or open the directory folder in the list.
 Click *Open Project Folder*, select the desired working directory.
 
@@ -112,7 +113,7 @@ Two files will be created in the selected directory:
 * `raw_folder` is the folder where raw resources are located (`.psd`, `.blend`, `.qc`...), it is its contents that are displayed in the file system panels in the exporter window.
 * `output_folder` is the folder where raw resources will be exported (to `.png`, `.obj`, `.mdl`...), keeping its path relative to `raw_folder`.
 * `game_root` is the root of the game, an equally important parameter, although the places where it is used are a bit chaotic. For example, the paths of the resources specified in the `.tres` materials when exporting for *Godot*, and arguments for programs for compiling *Source* models depend on it.
-* `plugins` - an array of identifiers of active plugins that the reporter should use in his work. The identifiers are equal to the names of the plugin folders, in the directory `resources_exporter/plugins/`.
+* `plugins` - an array of identifiers of active plugins that the exporter should use in his work. The identifiers are equal to the names of the plugin folders, in the directory `resources_exporter/plugins/`.
 * `run_resources_exporter.bat` is just a file for quick launch of the exporter in this directory.
 
 <div style="height:128px;"><img src="resources/pages/client.jpg"/></div>
