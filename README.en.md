@@ -28,6 +28,7 @@ The exporter of blend projects was focused on [Godot](https://godotengine.org ),
 
 * [Python >= 3.9](https://www.python.org/downloads/).
 * [ImageMagic](https://imagemagick.org/script/download.php). For manipulating images.
+* [Blender >= 2.9](https://www.blender.org/) and its `blender` executable in *PATH*. For exporting `.blend` projects.
 * \+ Plugin requirements, if any.
 
 </br>

@@ -117,6 +117,8 @@ def export_animation_events(obj):
     return markers_by_actions
 
 def apply_modifiers_of_all():
+    bpy.ops.object.mode_set(mode = 'OBJECT')
+
     for obj in bpy.context.view_layer.objects:
         if obj.type=="MESH":   
             obj.select_set(state=True)
@@ -124,7 +126,8 @@ def apply_modifiers_of_all():
         else:
             obj.select_set(state=False)
 
-    active = bpy.context.view_layer.objects.active
-    if active is not None and active.type == 'MESH':
-        bpy.ops.object.convert(target="MESH")
+        active = bpy.context.view_layer.objects.active
+        if active is not None and active.type == 'MESH':
+            bpy.ops.object.convert(target="MESH")
+    
     return {'FINISHED'}
