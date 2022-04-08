@@ -148,7 +148,6 @@ class ExportStatus(QExportApiWidget):
     def on_exported(self, result: ExportResult):
         if result.resource.filepath == self.current_file:
             self.current_file = None
-    
 
 class ExportPane(QExportApiWidget):
     def __init__(self, res_exporter: QResourcesExporter, *args, **kwargs) -> None:

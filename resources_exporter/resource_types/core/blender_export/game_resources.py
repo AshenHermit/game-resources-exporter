@@ -3,11 +3,6 @@ from enum import Enum, auto
 import json
 import pathlib
 import pip
-try:
-    import godot_parser as gp
-except ImportError:
-    pip.main(['install', 'godot-parser'])
-    import godot_parser as gp
 
 from multiprocessing import Condition
 import traceback

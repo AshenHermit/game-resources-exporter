@@ -126,7 +126,7 @@ class GUIClient(CustomWindow):
         self.res_exporter.export_queued_resources()
         if self.res_exporter.is_observing:
             self.res_exporter.update_observer()
-        self.res_exporter.update_result_listener()
+        self.res_exporter.update_queues_check()
 
     def start_update_loop(self):
         self._running_loop = True

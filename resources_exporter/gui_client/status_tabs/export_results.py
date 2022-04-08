@@ -189,14 +189,17 @@ class ExportResultsWidget(QExportApiWidget):
         if result.resource is None: return
         
         result_widget = ExportResultCard(self.res_exporter, result)
-        self.vbox.insertWidget(self.vbox.count()-1, result_widget)
+        if self.vbox:
+            self.vbox.insertWidget(self.vbox.count()-1, result_widget)
+        else:
+            print("wha")
         
         def scroll_to_bottom():
             scrollbar = self.scroll_area.verticalScrollBar()
             scrollbar.setSliderPosition(self.scroll_box.geometry().height())
         # scroll_to_bottom()
-        QTimer.singleShot(100, scroll_to_bottom)
-        QTimer.singleShot(400, scroll_to_bottom)
+        # QTimer.singleShot(100, scroll_to_bottom)
+        # QTimer.singleShot(400, scroll_to_bottom)
         # QTimer.singleShot(100, scroll_to_bottom)
         # QTimer.singleShot(200, scroll_to_bottom)
         

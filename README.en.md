@@ -242,6 +242,11 @@ If you call the collection "*model_name*_ref", everything behind the substring "
 
 </br>
 
+### Problems that can be received:
+* **blend project is not exported, the godot-parser module could not be installed in the Blender python**  
+    This often happens due to the lack of write permissions on the Blender Python site-packages folder.  
+    Try changing the permissions or run the exporter with administrator rights.
+
 ### TODO:
 * Separate the export for *Godot* into a separate plugin.
 * Write a plugin for blender, or in some other way display a list of available *custom properties*, without looking into the code.

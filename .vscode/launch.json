@@ -57,9 +57,7 @@
             "name": "exporter.py",
             "type": "python",
             "request": "launch",
-            "module": "resources_exporter.exporter",
-            "console": "integratedTerminal",
-            // "args": ["export_all", "-i", "../resources","-o", "\"../project/resources/\"", "-g", "\"../project/\""]
-        },
+            "program": "exporter.py",
+        }
     ]
 }

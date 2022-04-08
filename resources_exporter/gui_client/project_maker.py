@@ -58,7 +58,6 @@ class InputPathWidget(QWidget):
             dir, "Excel (*.xls *.xlsx)", 
             options=options)
         if filename:
-            print(filename)
             self.path = Path(filename)
     
 class ProjectItem(QWidget):

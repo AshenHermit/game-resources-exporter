@@ -1,3 +1,5 @@
+from enum import Enum, auto
+
 import sys
 from pathlib import Path
 import typing
@@ -10,7 +12,7 @@ import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
-import threading
+import threading, queue
 import time
 
 from resources_exporter.resource_types.res_local_config import ResLocalConfig
@@ -20,6 +22,16 @@ from .. import utils
 
 CFD = Path(__file__).parent.resolve()
 CWD = Path(os.getcwd()).resolve()
+
+class QueueItem():
+    class Type(Enum):
+        NONE = auto()
+        EXPORT_STARTED = auto()
+        EXPORTED = auto()
+        FILESYSTEM_CHANGED = auto()
+    def __init__(self, type:Type=Type.NONE, data=None) -> None:
+        self.type = type
+        self.data = data
 
 class QResourcesExporter(ResourcesExporter, QObject):
     """Exports resources in it's own thread. Has some signals for ui events."""
@@ -40,12 +52,20 @@ class QResourcesExporter(ResourcesExporter, QObject):
         self._export_thread.daemon = True
         self._export_thread.start()
 
-        self._export_results_queue:typing.List[Path] = []
-
         self.files_observer = Observer()
         self.start_file_system_change_observer()
 
+        self._events_queue = queue.Queue()
+
+        self.queues_check_timer = QTimer(self)
+        self.queues_check_timer.timeout.connect(self.update_queues_check)
+        self.queues_check_timer.start(10)
+
+        self.old_cfg_verbose = self.config.verbose
+        self.config.verbose = True
+
     def __del__(self):
+        self.config.verbose = self.old_cfg_verbose
         with self._mutex:
             self._thread_should_close = True
         self._export_thread.join()
@@ -85,31 +105,32 @@ class QResourcesExporter(ResourcesExporter, QObject):
             self.threaded_files_to_export_queue.clear()
         
         for file in files_to_export:
-            with self._mutex:
-                old_verbose = self.config.verbose
-                self.config.verbose = True
-                self.export_started.emit(file)
-                
+            self._events_queue.put(QueueItem(QueueItem.Type.EXPORT_STARTED, file))
             result = super().export_one_resource(file)
-
-            with self._mutex:
-                self._export_results_queue.append(result)
-                self.exported.emit(result)
-                self.config.verbose = old_verbose
-            self.files_iterator.update_file_info(file)
-            ResLocalConfig.clear_cache()
+            self._events_queue.put(QueueItem(QueueItem.Type.EXPORTED, result))
 
     def export_one_resource(self, filepath: Path):
         with self._mutex:
             self.threaded_files_to_export_queue.append(filepath)
+            ResLocalConfig.clear_cache()
     
-    def update_result_listener(self):
-        while len(self._export_results_queue)>0:
-            result = self._export_results_queue.pop()
-            # self.exported.emit(result)
+    def update_queues_check(self):
+        while not self._events_queue.empty():
+            qitem = self._events_queue.get()
+
+            if qitem.type is QueueItem.Type.EXPORT_STARTED:
+                self.export_started.emit(qitem.data)
+
+            elif qitem.type is QueueItem.Type.EXPORTED:
+                result = qitem.data
+                self.exported.emit(result)
+                self.files_iterator.update_file_info(result.resource.filepath)
+
+            elif qitem.type is QueueItem.Type.FILESYSTEM_CHANGED:
+                self.file_system_changed.emit()
 
     def _on_file_system_change(self):
-        self.file_system_changed.emit()
+        self._events_queue.put(QueueItem(QueueItem.Type.FILESYSTEM_CHANGED))
 
     def start_file_system_change_observer(self):
         self.files_observer = Observer()

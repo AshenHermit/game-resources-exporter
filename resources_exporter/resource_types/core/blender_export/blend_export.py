@@ -13,15 +13,23 @@ import importlib
 def install_requirements():
     try:
         import godot_parser as gp
-    except ImportError:
+    except:
         python_exe = os.path.join(sys.prefix, 'bin', 'python.exe')
+        target = os.path.join(sys.prefix, 'lib', 'site-packages')
         print(python_exe)
         subprocess.call([python_exe, "-m", "ensurepip"])
         subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "pip"])
-        subprocess.call([python_exe, "-m", "pip", "install", "godot-parser"])
+        subprocess.call([python_exe, "-m", "pip", "install", "--upgrade", "godot-parser", "-t", target])
 
-        import godot_parser as gp
-        importlib.reload(gp)
+        try:
+            import godot_parser as gp
+            importlib.reload(gp)
+        except:
+            print()
+            print("####  WAIT A MINUTE  ####")
+            print("The godot-parser module could not be installed in the Blender python.")
+            print(f"This often happens due to the lack of write permissions to the folder: \n\"{target}\"")
+            print("Try changing the permissions or run the exporter with administrator rights.")
 install_requirements()
 
 try:
