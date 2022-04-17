@@ -116,18 +116,40 @@ def export_animation_events(obj):
         markers_by_actions[action.name] = markers
     return markers_by_actions
 
+def use_area(area_type="VIEW_3D"):
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            override = bpy.context.copy()
+            override['area'] = area
+            return override
+
+def apply_modifiers(obj):
+    ctx = bpy.context.copy()
+    ctx['object'] = obj
+    for _, m in enumerate(obj.modifiers):
+        try:
+            ctx['modifier'] = m
+            bpy.ops.object.modifier_apply(ctx, modifier=m.name)
+        except RuntimeError:
+            print(f"Error applying {m.name} to {obj.name}, removing it instead.")
+            obj.modifiers.remove(m)
+
+    for m in obj.modifiers:
+        obj.modifiers.remove(m)
+
 def apply_modifiers_of_all():
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-
+    ctx = bpy.context.copy()
     for obj in bpy.context.view_layer.objects:
-        if obj.type=="MESH":   
-            obj.select_set(state=True)
-            bpy.context.view_layer.objects.active = obj
-        else:
-            obj.select_set(state=False)
+        ctx['object'] = obj
+        for _, m in enumerate(obj.modifiers):
+            try:
+                ctx['modifier'] = m
+                bpy.ops.object.modifier_apply(ctx, modifier=m.name)
+            except RuntimeError:
+                print(f"Error applying {m.name} to {obj.name}, removing it instead.")
+                obj.modifiers.remove(m)
 
-        active = bpy.context.view_layer.objects.active
-        if active is not None and active.type == 'MESH':
-            bpy.ops.object.convert(target="MESH")
+        for m in obj.modifiers:
+            obj.modifiers.remove(m)
     
     return {'FINISHED'}

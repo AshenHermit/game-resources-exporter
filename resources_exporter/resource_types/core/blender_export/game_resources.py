@@ -1,4 +1,5 @@
 import argparse
+from email.policy import strict
 from enum import Enum, auto
 import json
 import pathlib
@@ -7,7 +8,8 @@ import pip
 from multiprocessing import Condition
 import traceback
 import typing
-import bpy
+import bpy, bpy_types
+import bpy.types
 import sys
 import os
 from math import *
@@ -90,7 +92,6 @@ class MaterialResource(GameResource):
         self.tex_name = name
         self.type = "SpatialMaterial"
         self.emission = False
-        self.transparent = False
         self.two_sided = False
 
         self.material_data = None
@@ -111,15 +112,106 @@ class MaterialResource(GameResource):
     @property
     def output_path(self)->Path:
         return super().output_path.with_name(f"mat_{self.name}.tres")
+
+    def format_tex_to_relpath(self, path, rel_to)->Path:
+        path = Path(path)
+        path = (Path("C:/") / rel_to) / Path(path.as_posix().replace("//..", ".."))
+        path = path.with_name(path.name.replace(".psd", ".png"))
+        path = path.resolve(strict=False).relative_to("C:/")
+        return GodotResPath(path)
+
+    def find_in_ntree(self, node_type):
+        for node in self.material_data.node_tree.nodes:
+            if node.type == node_type:
+                return node
+        return None
     @property
-    def texture_res_path(self)->GodotResPath:
-        return self.res_path.with_name(self.tex_name+".png")
+    def material_output(self):
+        return self.find_in_ntree("OUTPUT_MATERIAL")
+
+    def __iterate_inputs(self, start_node):
+        for inp in  start_node.inputs:
+            yield inp
+            for link in inp.links:
+                yield from self.__iterate_inputs(link.from_node)
+
+    def iterate_inputs(self):
+        yield from self.__iterate_inputs(self.material_output)
+
+    def find_node(self, mro_of_node, name_of_output=None, name_of_inp_output_goes_into=None, mro_of_node_output_goes_into=None, execlude_mro_of_node_ogt:list=None):
+        def string_matches(a,b):
+            return b.strip().lower().find(a.strip().lower())!=-1
+
+        for node in self.material_data.node_tree.nodes:
+            if mro_of_node not in type(node).__mro__: continue
+
+            if name_of_output is not None:
+                output = None
+
+                for out in node.outputs:
+                    if string_matches(out.name, name_of_output):
+                        output = out
+                if output is None: continue
+
+            if name_of_inp_output_goes_into is not None:
+                if len(output.links)>0:
+                    matches = False
+                    for link in output.links:
+                        if string_matches(link.to_socket.name, name_of_inp_output_goes_into):
+                            matches = True
+                    if not matches: continue
+
+            if mro_of_node_output_goes_into is not None:
+                if len(output.links)>0:
+                    matches = False
+                    for link in output.links:
+                        mro = type(link.to_node).__mro__
+                        if mro_of_node_output_goes_into in mro:
+                            matches = True
+                        # execludes
+                        if execlude_mro_of_node_ogt is not None:
+                            for exec_type in execlude_mro_of_node_ogt:
+                                if exec_type in mro:
+                                    matches = False
+                    if not matches: continue
+
+            return node
+
+        return None
+
     @property
-    def emission_tex_res_path(self)->GodotResPath:
-        return self.res_path.with_name(self.texture_res_path.pure_name+"_emission.png")
+    def texture_res_path(self)->Path:
+        """ returns the path to a png image associated with color input of shader in shader editor """
+        tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "color", bpy_types.ShaderNode, [bpy.types.ShaderNodeNormalMap])
+        if tex_image_node:
+            if tex_image_node.image is not None:
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+        return None
+
+    @property
+    def emission_tex_res_path(self)->Path:
+        """ returns the path to a png image associated with emission input of shader in shader editor """
+        tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "emission", bpy_types.ShaderNode)
+        if tex_image_node:
+            if tex_image_node.image is not None:
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+        return None
+
+    @property
+    def normal_tex_res_path(self)->Path:
+        """ returns the path to a png image associated with normal map node in shader editor """
+        tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "color", bpy.types.ShaderNodeNormalMap)
+        if tex_image_node:
+            if tex_image_node.image is not None:
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+        return None
+
+    @property
+    def transparent(self):
+        return self.material_data.blend_method != "OPAQUE"
 
     def export(self, **kwargs):
-        if len(self.get_textures())>0:
+        if self.texture_res_path is not None:
             self.make_textured_res().save()
         else:
             self.export_colored_res().save()
@@ -130,13 +222,21 @@ class MaterialResource(GameResource):
         tex_res = mat_res.add_ext_resource(str(self.texture_res_path), "Texture")
         mat_section = gp.GDResourceSection()
         if self.two_sided: mat_section.properties['params_cull_mode'] = 2
-        if self.transparent: mat_section.properties['flags_transparent'] = True
+        if self.transparent:
+            mat_section.properties['flags_transparent'] = True
+            mat_section.properties["params_depth_draw_mode"] = 1
         mat_section.properties["albedo_texture"] = tex_res.reference
         
-        if self.emission:
+        if self.emission_tex_res_path is not None:
             emm_res = mat_res.add_ext_resource(str(self.emission_tex_res_path), "Texture")
             mat_section.properties["emission_enabled"] = True
             mat_section.properties["emission_texture"] = emm_res.reference
+
+        if self.normal_tex_res_path is not None:
+            nrm_res = mat_res.add_ext_resource(str(self.normal_tex_res_path), "Texture")
+            mat_section.properties["normal_enabled"] = True
+            mat_section.properties["normal_scale"] = 1.0
+            mat_section.properties["normal_texture"] = nrm_res.reference
         
         mat_res.add_section(mat_section)
         return GodotResSaver(mat_res, self.output_path)
@@ -157,7 +257,8 @@ class ModelResource(GameResource):
         super().__init__(config, name)
 
         self.collection_name = "Collection"
-        self.materials:list[MaterialResource] = []
+        self.materials:dict[str, MaterialResource] = {}
+        self.related_objects = []
 
     @property
     def collection(self):
@@ -189,17 +290,18 @@ class ModelResource(GameResource):
         model_name:str = collection.name
         if model_name.endswith("_phy"):
             model_name = model_name[:model_name.rfind("_phy")]
-            model = ModelResource.PHYSICS_MODEL_CLASS(config)
+            model:ModelResource = ModelResource.PHYSICS_MODEL_CLASS(config)
         else:
             pref_pos = model_name.rfind("_ref")
             if pref_pos!=-1: model_name = model_name[:pref_pos]
-            model = ModelResource.VIEW_MODEL_CLASS(config)
+            model:ModelResource = ModelResource.VIEW_MODEL_CLASS(config)
         
         model.collection_name = collection.name
         model.name = model_name
 
         materials_data = []
         for obj in collection.objects.values():
+            model.related_objects.append(obj)
             bpy.context.view_layer.objects.active = obj
             model._process_object(obj)
             model.apply_properties(obj)
@@ -208,7 +310,7 @@ class ModelResource(GameResource):
         for material_data in materials_data:
             material = MaterialResource.from_material_data(material_data, config)
             if material is not None:
-                model.materials.append(material)
+                model.materials[material.material_data.name] = material
 
         return model
     
@@ -233,7 +335,10 @@ class ModelResource(GameResource):
         bpy.ops.export_scene.gltf(
             filepath=filepath.as_posix(),
             check_existing=False,
-            use_selection=True)
+            use_selection=True,
+            # export_materials="NONE",
+            export_lights=True,
+            )
 
 class ViewModel(ModelResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
@@ -255,7 +360,7 @@ class ViewModel(ModelResource):
         self.animation_events.update(utils.export_animation_events(obj))
 
     def export(self, **kwargs):
-        for material in self.materials:
+        for material in self.materials.values():
             material.export(**kwargs)
 
         if self.format == "obj":
@@ -298,7 +403,7 @@ class ViewModel(ModelResource):
             mesh_section = gp.GDNodeSection(self.name, type="MeshInstance")
             mesh_section.properties["mesh"] = geometry_res.reference
 
-            for i, material in enumerate(self.materials):
+            for i, material in enumerate(self.materials.values()):
                 mat_res = scene.add_ext_resource(str(material.res_path), "Material")
                 mesh_section.properties[f"material/{i}"] = mat_res.reference
             
@@ -306,6 +411,31 @@ class ViewModel(ModelResource):
         else:
             mesh_section = gp.GDNodeSection(self.name, instance=geometry_res.id)
             scene.add_section(mesh_section)
+
+            for i, obj in enumerate(self.related_objects):
+                obj_name = obj.name.replace(".", "")
+                child_section = None
+
+                if obj.type == "LIGHT":
+                    if obj.data.type == "POINT":
+                        child_section = gp.GDNodeSection(obj_name+"_Orientation", type=None, parent=obj_name, index=0)
+                        child_section.properties[f"shadow_enabled"] = True
+                        child_section.properties[f"omni_attenuation"] = 14.0
+                        child_section.properties[f"omni_range"] = obj.data.cutoff_distance
+                        energy_convert = 0.0041726618
+                        child_section.properties[f"light_energy"] = obj.data.energy * energy_convert
+                        
+                else:
+                    child_section = gp.GDNodeSection(obj_name, type=None, parent=".", index=i)
+                    for m, mat_key in enumerate(obj.material_slots.keys()):
+                        if mat_key in self.materials:
+                            material = self.materials[mat_key]
+                            mat_res = scene.add_ext_resource(str(material.res_path), "Material")
+                            child_section.properties[f"material/{m}"] = mat_res.reference
+                        
+            
+                if child_section is not None:
+                    scene.add_section(child_section)
 
         return GodotResSaver(scene, self.output_scene_path)
 

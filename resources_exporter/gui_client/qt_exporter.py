@@ -105,9 +105,11 @@ class QResourcesExporter(ResourcesExporter, QObject):
             self.threaded_files_to_export_queue.clear()
         
         for file in files_to_export:
-            self._events_queue.put(QueueItem(QueueItem.Type.EXPORT_STARTED, file))
-            result = super().export_one_resource(file)
-            self._events_queue.put(QueueItem(QueueItem.Type.EXPORTED, result))
+            cls = self.resources_registry.get_res_class_by_filepath(file)
+            if cls is not None:
+                self._events_queue.put(QueueItem(QueueItem.Type.EXPORT_STARTED, file))
+                result = super().export_one_resource(file)
+                self._events_queue.put(QueueItem(QueueItem.Type.EXPORTED, result))
 
     def export_one_resource(self, filepath: Path):
         with self._mutex:
@@ -124,7 +126,8 @@ class QResourcesExporter(ResourcesExporter, QObject):
             elif qitem.type is QueueItem.Type.EXPORTED:
                 result = qitem.data
                 self.exported.emit(result)
-                self.files_iterator.update_file_info(result.resource.filepath)
+                if result.resource:
+                    self.files_iterator.update_file_info(result.resource.filepath)
 
             elif qitem.type is QueueItem.Type.FILESYSTEM_CHANGED:
                 self.file_system_changed.emit()

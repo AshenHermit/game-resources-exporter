@@ -67,7 +67,7 @@ class BlendExporter():
         print(f"getting rid of multi user data... {result}")
 
         result = utils.apply_modifiers_of_all()
-        print(f"applying modifierss... {result}")
+        print(f"applying modifiers... {result}")
     
     def deactivate_everything(self):
         for collection in bpy.context.scene.collection.children.values(): 
