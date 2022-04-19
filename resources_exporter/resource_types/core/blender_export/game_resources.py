@@ -3,6 +3,7 @@ from email.policy import strict
 from enum import Enum, auto
 import json
 import pathlib
+import shutil
 import pip
 
 from multiprocessing import Condition
@@ -280,6 +281,9 @@ class ModelResource(GameResource):
 
     def _process_object(self, obj):
         pass
+
+    def apply_modifiers(self):
+        utils.apply_modifiers(self.related_objects)
     
     @staticmethod
     def from_collection(collection, config:Config=None):
@@ -320,6 +324,7 @@ class ModelResource(GameResource):
     def export_obj(self):
         self.select_related_objects()
         filepath = self.output_path.with_suffix(".obj")
+        filepath.parent.mkdir(parents=True, exist_ok=True)
         bpy.ops.export_scene.obj(
             filepath=filepath.as_posix(),
             check_existing=False,
@@ -332,6 +337,7 @@ class ModelResource(GameResource):
     def export_glb(self):
         self.select_related_objects()
         filepath = self.output_path.with_suffix(".glb")
+        filepath.parent.mkdir(parents=True, exist_ok=True)
         bpy.ops.export_scene.gltf(
             filepath=filepath.as_posix(),
             check_existing=False,
@@ -341,6 +347,13 @@ class ModelResource(GameResource):
             )
 
 class ViewModel(ModelResource):
+    class AnimationStruct:
+        def __init__(self, name=None, loop=True, speed=18, images=None) -> None:
+            self.name = name or "animation"
+            self.loop = loop
+            self.speed = speed
+            self.images = images or []
+    
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
@@ -355,6 +368,8 @@ class ViewModel(ModelResource):
         self.ortho_scale = 1.0
         self.auto_pos_camera = True
 
+        self.render_animation = False
+
     def _process_object(self, obj):
         self.config.object_processors.execute_all(obj=obj)
         self.animation_events.update(utils.export_animation_events(obj))
@@ -363,21 +378,105 @@ class ViewModel(ModelResource):
         for material in self.materials.values():
             material.export(**kwargs)
 
+        if self.render_icon:
+            self._render_icon()
+        
+        if self.render_animation:
+            self._render_animations()
+
+        self.apply_modifiers()
+        
         if self.format == "obj":
             self.export_obj()
         elif self.format == "glb":
             self.export_glb()
 
-        if self.render_icon:
-            self._render_icon()
-
         self.make_godot_scene().save()
+        
+    def _render_animations(self):
+        obj = None
+        for robj in self.related_objects:
+            if not hasattr(robj, "animation_data"): continue
+            if not hasattr(robj.animation_data, "nla_tracks"): continue
+            if len(robj.animation_data.nla_tracks)==0: continue
+            obj = robj
+            break
+
+        animations = []
+        
+        if obj is None: return
+        scene = bpy.context.scene
+        nla_tracks = obj.animation_data.nla_tracks
+        for nla_track in nla_tracks:
+            if len(nla_track.strips)==0: continue
+            
+            obj.animation_data.nla_tracks.active = nla_track
+            nla_track.is_solo = True
+
+            start_frame = min([s.frame_start for s in nla_track.strips])
+            end_frame = max([s.frame_end for s in nla_track.strips])
+            name = nla_track.name
+            output_folder = (self.output_path.parent/f"anim_{name}")
+            fps = scene.render.fps
+            loop = nla_track.strips[0].action.use_cyclic
+            
+            animation = self.AnimationStruct(name, loop, fps, [])
+
+            scene.frame_start = int(start_frame)
+            scene.frame_end = int(end_frame)
+            scene.frame_current = scene.frame_start
+            scene.frame_current = 3
+
+            if output_folder.exists():
+                shutil.rmtree(output_folder)
+            output_folder.mkdir(parents=True, exist_ok=True)
+
+            for i in range(scene.frame_start, scene.frame_end+1):
+                scene.frame_current = i
+                filename = f"{i}"
+                scene.render.filepath = output_folder.as_posix()+"/"+filename
+                animation.images.append((output_folder/filename).with_suffix(".png"))
+                bpy.ops.render.render(False, animation=False, write_still=True)
+            
+            print()
+            print(f"Rendered animation \"{name}\" to folder \"{output_folder.as_posix()}\"")
+            animations.append(animation)
+        self.render_gd_animations(obj, animations)
+        print()
+    
+    def render_gd_animations(self, obj, animations:list[AnimationStruct]):
+        filepath = self.output_path.parent/f"{obj.name}_animations.tres"
+        saver = GodotResSaver(GDTypedResource("SpriteFrames"), filepath)
+        tres = saver.res
+
+        res_section = gp.GDSection(gp.GDSectionHeader("resource"))
+        tres.add_section(res_section)
+        animations_in_section = []
+        for anim in animations:
+            anim_data = {
+                "frames": [],
+                "loop": anim.loop,
+                "speed": anim.speed,
+                "name": anim.name,
+            }
+            for img_path in anim.images:
+                img_res_path = GodotResPath(img_path.relative_to(self.config.game_root))
+                frame_res = tres.add_ext_resource(str(img_res_path), "Texture")
+                anim_data["frames"].append(frame_res.reference)
+
+            animations_in_section.append(anim_data)
+        res_section["animations"] = animations_in_section
+        
+        saver.save()
+        print()
+        print(f"saved godot animations resource: \"{filepath.as_posix()}\"")
 
     @property
     def output_path(self) -> Path:
         return super().output_path.with_suffix("."+self.format)
     @property
     def output_scene_path(self) -> Path:
+        """self.output_path with .tscn suffix"""
         return super().output_path.with_suffix(".tscn")
     
     @property
@@ -488,6 +587,7 @@ class PhysicsModel(ModelResource):
         self.mesh_points += utils.get_vertex_data(obj)
 
     def export(self, **kwargs):
+        self.apply_modifiers()
         self.make_collision_shape().save()
         if self.rigid:     self.make_body(self.BodyType.RIGID).save()
         if self.static:    self.make_body(self.BodyType.STATIC).save()

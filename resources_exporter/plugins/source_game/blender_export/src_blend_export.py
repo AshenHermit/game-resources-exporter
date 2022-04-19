@@ -41,6 +41,7 @@ class SourceModel(ModelResource):
         super().__init__(config, name)
     
     def export(self, **kwargs):
+        self.apply_modifiers()
         self.export_smd()
         self.tune_qc_maker()
 

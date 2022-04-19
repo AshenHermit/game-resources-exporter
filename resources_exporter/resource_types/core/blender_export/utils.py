@@ -137,9 +137,9 @@ def apply_modifiers(obj):
     for m in obj.modifiers:
         obj.modifiers.remove(m)
 
-def apply_modifiers_of_all():
+def apply_modifiers(objects):
     ctx = bpy.context.copy()
-    for obj in bpy.context.view_layer.objects:
+    for obj in objects:
         ctx['object'] = obj
         for _, m in enumerate(obj.modifiers):
             try:
