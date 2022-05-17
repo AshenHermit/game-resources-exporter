@@ -49,9 +49,10 @@ class ResLocalConfig(Storable):
             directory = path.parent
         elif path.is_dir():
             directory = path
-        else: return None
+        else: return ResLocalConfig()
         cfg_filepath = directory / ResLocalConfig._CONFIG_FILENAME
         cfg:ResLocalConfig = ResLocalConfig.load_from_file(cfg_filepath)
+        if cfg is None: cfg = ResLocalConfig()
         return cfg
 
     @classmethod
@@ -60,4 +61,7 @@ class ResLocalConfig(Storable):
 
     @classmethod
     def s_get_settings_for_file(cls, path:Path):
-        return cls.of_filepath(path).get_settings_for_file(path)
+        cfg = cls.of_filepath(path)
+        settings = cfg.get_settings_for_file(path)
+        if settings is None: settings = ResLocalSettings(cfg)
+        return settings
