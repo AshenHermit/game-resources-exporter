@@ -16,6 +16,12 @@ class CustomViewModel(ViewModel):
         self.anim_player_node_name = "AnimationPlayer"
         self.anim_installer_script = GodotResPath("src/utils/AnimWithEvents.cs")
         self.anim_installer_prop_name = "AnimationEvents"
+
+        ### PROPERTIES START
+        ### class: view_model
+        ### "WARMING PLACE" PLUGIN ACTIONS:
+        ### If Object has animations, it appends to generated scene "src/utils/AnimWithEvents.cs" script and dumps self.animation_events to script AnimationEvents property
+        ### PROPERTIES END
     
     def make_godot_scene(self):
         saver = super().make_godot_scene()

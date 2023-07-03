@@ -62,6 +62,7 @@ class Config:
     game_root:Path
     game_resources_dir:Path
     raw_resources_folder:Path
+    # THIS IS A BLENDER PROJECT FILEPATH
     project_filepath:Path
     external_config:dict
 

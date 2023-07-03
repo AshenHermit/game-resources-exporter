@@ -90,10 +90,21 @@ class GameResource():
 class MaterialResource(GameResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
+
         self.tex_name = name
+        ### PROPERTIES START
+        ### class: material
+        ### "CORE" PLUGIN DEFAULT ACTIONS:
+        ### Material exports an object material for Godot. 
+        ### It creates a textured resource for the material by adding external resources (textures) to the material resource. 
+        ### It also sets various properties of the material such as culling mode, transparency, albedo texture, emission texture, and normal texture.
+        ### Uses Textures That found in Shader Nodes.
+        # This property represents the type of material being used in godot material resource.
+        # values: "SpatialMaterial", "lol"
         self.type = "SpatialMaterial"
-        self.emission = False
+        # This property represents culling mode of material.
         self.two_sided = False
+        ### PROPERTIES END
 
         self.material_data = None
     
@@ -115,10 +126,11 @@ class MaterialResource(GameResource):
         return super().output_path.with_name(f"mat_{self.name}.tres")
 
     def format_tex_to_relpath(self, path, rel_to)->Path:
-        path = Path(path)
-        path = (Path("C:/") / rel_to) / Path(path.as_posix().replace("//..", ".."))
+        path = Path(path.replace("//", self.config.project_filepath.parent.as_posix()+"/"))
         path = path.with_name(path.name.replace(".psd", ".png"))
-        path = path.resolve(strict=False).relative_to("C:/")
+        path = path.resolve(strict=False)
+        path = path.relative_to(rel_to)
+        path = Path(self.config.game_resources_dir.name+"/"+path.as_posix())
         return GodotResPath(path)
 
     def find_in_ntree(self, node_type):
@@ -186,7 +198,7 @@ class MaterialResource(GameResource):
         tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "color", bpy_types.ShaderNode, [bpy.types.ShaderNodeNormalMap])
         if tex_image_node:
             if tex_image_node.image is not None:
-                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.config.raw_resources_folder)
         return None
 
     @property
@@ -195,7 +207,7 @@ class MaterialResource(GameResource):
         tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "emission", bpy_types.ShaderNode)
         if tex_image_node:
             if tex_image_node.image is not None:
-                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.config.raw_resources_folder)
         return None
 
     @property
@@ -204,7 +216,7 @@ class MaterialResource(GameResource):
         tex_image_node = self.find_node(bpy.types.ShaderNodeTexImage, "color", "color", bpy.types.ShaderNodeNormalMap)
         if tex_image_node:
             if tex_image_node.image is not None:
-                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.res_path.parent)
+                return self.format_tex_to_relpath(tex_image_node.image.filepath, self.config.raw_resources_folder)
         return None
 
     @property
@@ -216,7 +228,7 @@ class MaterialResource(GameResource):
             self.make_textured_res().save()
         else:
             self.export_colored_res().save()
-
+    
     def make_textured_res(self):
         mat_res = GDTypedResource(self.type)
 
@@ -359,16 +371,33 @@ class ViewModel(ModelResource):
 
         self.animation_events = {}
 
-        # properties
+        ### PROPERTIES START
+        ### class: view_model
+        ### "CORE" PLUGIN DEFAULT ACTIONS:
+        ### Exports all materials.
+        ### If the "render_icon" flag is set, renders an icon for the model.
+        ### If the "render_animation" flag is set, renders animations frames sorted to folders "anim_{name}".
+        ### Applies any modifiers or transformations to the model.
+        ### Exports in "obj" or "glb" formats.
+        ### Creates a Godot scene.
+        # what format to export
+        # values: "obj", "glb"
         self.format = "obj"
 
+        # render icon for this model
         self.render_icon = False
+        # icon size
         self.icon_size = 64
+        # camera position on vertical-coordinate
         self.camera_look_at_z = 1.0
+        # scale of camera
         self.ortho_scale = 1.0
+        # use your current camera position or set it automaticly
         self.auto_pos_camera = True
 
+        # render all model animations frames sorted to folders "anim_{name}"
         self.render_animation = False
+        ### PROPERTIES END
 
     def _process_object(self, obj):
         self.config.object_processors.execute_all(obj=obj)
@@ -425,7 +454,6 @@ class ViewModel(ModelResource):
             scene.frame_start = int(start_frame)
             scene.frame_end = int(end_frame)
             scene.frame_current = scene.frame_start
-            scene.frame_current = 3
 
             if output_folder.exists():
                 shutil.rmtree(output_folder)
@@ -569,15 +597,23 @@ class PhysicsModel(ModelResource):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
-        # properties
+        ### PROPERTIES START
+        ### class: phy_model
+        ### "CORE" PLUGIN DEFAULT ACTIONS:
+        ### Applies modifiers to the model.
+        ### Creates a Godot collision shape from model geometry.
+        ### If rigid body flag, creates a rigid body Godot scene with view model appended.
+        ### If static body flag, creates a static body Godot scene with view model appended.
+        ### If kinematic body flag, creates a kinematic body Godot scene with view model appended.
+        # generate static body scene with view model appended.
         self.static = False
-        """ generate static body """
+        # generate rigid body scene with view model appended.
         self.rigid = False
-        """ generate rigid body """
+        # generate kinematic body scene with view model appended.
         self.kinematic = False
-        """ generate rigid body """
+        # if True - use convex geometry, if False - use concave geometry.
         self.convex = False
-        """ if True - use convex geometry, if False - use concave geometry. """
+        ### PROPERTIES END
 
         self.margin = 0.04
 

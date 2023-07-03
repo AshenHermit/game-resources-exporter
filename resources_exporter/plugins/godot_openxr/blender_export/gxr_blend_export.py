@@ -12,9 +12,13 @@ except:
 class CustomPhysicsModel(PhysicsModel):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
-        # properties
+        ### PROPERTIES START
+        ### class: phy_model
+        ### "GODOT OPENXR" PLUGIN ACTIONS:
+        ### Just makes object pickable, adds Object_pickable.gd script.
         self.pickable = False
         self.picked_up_layer = 0
+        ### PROPERTIES END
 
         self.margin = 0.001
 

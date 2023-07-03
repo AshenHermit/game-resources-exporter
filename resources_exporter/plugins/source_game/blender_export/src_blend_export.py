@@ -115,6 +115,13 @@ class SourceViewModel(SourceModel):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
+        ### PROPERTIES START
+        ### class: view_model
+        ### "SOURCE GAME" PLUGIN ACTIONS:
+        ### Generates qc files with configured cdmaterials, modelname...
+        ### PROPERTIES END
+
+
     def tune_qc_maker(self):
         self.qc_maker.modelname = self.name
         self.qc_maker.cdmaterials = self.cdmaterials
@@ -126,12 +133,16 @@ class SourcePhysicsModel(SourceModel):
     def __init__(self, config: Config = None, name: str = "") -> None:
         super().__init__(config, name)
 
-        # properties
-        self.mass = -1
+        ### PROPERTIES START
+        ### class: phy_model
+        ### "SOURCE GAME" PLUGIN ACTIONS:
+        ### Generates qc files with properties.
+        self.mass = -1.0
         self.concave = False
         self.surfaceprop = "plastic"
         self.prop = False
         self.prop_base = "Plastic.Small"
+        ### PROPERTIES END
 
     def tune_qc_maker(self):
         cm = QCFileMaker.CollisionModel()
