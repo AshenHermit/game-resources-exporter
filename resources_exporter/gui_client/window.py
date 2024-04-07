@@ -2,7 +2,6 @@ import argparse
 import gc
 import shlex
 import subprocess
-from sre_constants import CALL
 import traceback
 from .window_base import *
 from .project_maker import ProjectMaker

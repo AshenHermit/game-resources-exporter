@@ -6,6 +6,7 @@ godot-parser
 ansi2html
 termcolor
 colorama
+pyperclip
 Send2Trash
 
 mock
