@@ -28,7 +28,7 @@
 
 * [Python >= 3.9](https://www.python.org/downloads/).
 * [ImageMagic](https://imagemagick.org/script/download.php). Для манипуляций с изображениями.
-* [Blender >= 2.9](https://www.blender.org/) и его исполняемый файл `blender` в переменной *PATH*. Для экспорта `.blend` проектов.
+* [Blender >= 4.0](https://www.blender.org/) и его исполняемый файл `blender` в переменной *PATH*. Для экспорта `.blend` проектов.
 * \+ Требования плагинов, если есть.
 
 </br>
