@@ -27,14 +27,7 @@ class BlenderModel(ModelResource):
         raw_resources_folder = self.config.raw_folder
         export_folder = self.config.output_folder
         game_root = self.config.game_root
-        cmd = f'blender "{self.filepath.as_posix()}" --background --python "{blend_export_script.as_posix()}"'
-        str_args = [
-            raw_resources_folder.as_posix(),
-            export_folder.as_posix(),
-            game_root.as_posix(),
-            self.config._storage_file.resolve().as_posix(),
-        ]
-        cmd += " " + " ".join(map(lambda x: f'"{x}"', str_args))
+        cmd = f'blender "{self.filepath.as_posix()}" -b --python "{blend_export_script.as_posix()}"'
 
         self.run_program(cmd)
 

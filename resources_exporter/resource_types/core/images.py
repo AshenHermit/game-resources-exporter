@@ -32,8 +32,20 @@ class PhotoshopImage(ImageResource):
     def export_png(self, src_filepath:Path, dst_filepath:Path):
         dst_filepath = dst_filepath.with_suffix(".png")
         utils.make_dirs_to_file(dst_filepath)
-        cmd = f'{self.config.image_magic_cmd} "{src_filepath}[0]" "{dst_filepath}"'
-        self.run_program(cmd)
+
+        def convert_to_png(dst_filepath):
+            cmd = f'{self.config.image_magic_cmd} "{src_filepath}[0]" "{dst_filepath}"'
+            self.run_program(cmd)
+
+        convert_to_png(dst_filepath)
+        print(f"converted \"{dst_filepath.name}\"")
+
+        for glbfile in dst_filepath.parent.glob("*.glb"):
+            add_path = Path(dst_filepath.with_stem(glbfile.stem+"_"+dst_filepath.stem))
+            if add_path.exists():
+                convert_to_png(add_path)
+                print(f"also updated \"{add_path.name}\", probably for model \"{glbfile.name}\"")
+
         return dst_filepath
 
     def export_ico(self, src_filepath:Path, dst_filepath:Path):

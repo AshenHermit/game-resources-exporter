@@ -33,15 +33,15 @@ def install_requirements():
 install_requirements()
 
 try:
-    from . import utils
+    from . import gre_utils
     from . import exporter_core
     from . import game_resources
 except:
-    import utils
+    import gre_utils as gre_utils
     import exporter_core
     import game_resources
 
-importlib.reload(utils)
+importlib.reload(gre_utils)
 importlib.reload(exporter_core)
 importlib.reload(game_resources)
 
@@ -84,7 +84,7 @@ class BlendExporter():
             def get_collection():
                 return bpy.context.scene.collection.children.get(collection_key)
             collection = get_collection()
-            utils.unselect_all_objects()
+            gre_utils.unselect_all_objects()
             collection = get_collection()
             collection.hide_viewport = False
             collection.hide_render = False
@@ -103,22 +103,28 @@ class BlendExporter():
         if model is not None:
             model.export()
         return model
+    
+def find_exporter_config():
+    name = "exporter_config.json"
+    filepath = Path(bpy.data.filepath).parent.resolve()
+    for i in range(50): # wtf mb need to refactor this
+        if not filepath.parent: return None
+        filepath = filepath.parent
+        for item in filepath.glob(name):
+            return item.resolve()
 
 def make_config_from_args():
-    raw_resources_folder:Path = Path(sys.argv[-4]).resolve()
-    output_folder:Path = Path(sys.argv[-3]).resolve()
-    game_root = Path(sys.argv[-2]).resolve()
-    config_filepath = Path(sys.argv[-1]).resolve()
+    config_filepath = find_exporter_config()
     filepath = Path(bpy.data.filepath).resolve()
 
     config = Config()
-    config.game_root = game_root
-    config.game_resources_dir = output_folder
-    config.raw_resources_folder = raw_resources_folder
     config.project_filepath = filepath
     config.external_config = {}
     if config_filepath.exists():
         config.external_config.update(json.loads(config_filepath.read_text()))
+        config.game_root = config_filepath.parent / Path(config.external_config["game_root"]).resolve()
+        config.raw_resources_folder = config_filepath.parent / Path(config.external_config["raw_folder"]).resolve()
+        config.game_resources_dir = config_filepath.parent / Path(config.external_config["output_folder"]).resolve()
 
     return config
 

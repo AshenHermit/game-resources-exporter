@@ -125,18 +125,21 @@ def use_area(area_type="VIEW_3D"):
 
 def apply_modifiers(objects):
     ctx = bpy.context.copy()
-    for obj in objects:
+    for obj in objects:        
+        obj.select_set(True)
         ctx['object'] = obj
         for _, m in enumerate(obj.modifiers):
             try:
                 ctx['modifier'] = m
                 with bpy.context.temp_override(object=obj, modifier=m):
-                    bpy.ops.object.modifier_apply(modifier=m.name)
+                    bpy.ops.object.modifier_apply(modifier=m.name, single_user=True)
+
             except RuntimeError:
                 print(f"Error applying {m.name} to {obj.name}, removing it instead.")
                 obj.modifiers.remove(m)
 
         for m in obj.modifiers:
-            obj.modifiers.remove(m)
+            pass
+            # obj.modifiers.remove(m)
     
     return {'FINISHED'}

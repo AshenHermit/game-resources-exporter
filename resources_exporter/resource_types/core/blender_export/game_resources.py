@@ -18,10 +18,10 @@ from pathlib import Path
 import shlex
 
 try:
-    from . import utils
+    from . import gre_utils
     from .exporter_core import *
 except:
-    import utils
+    import gre_utils as gre_utils
     from exporter_core import *
 
 class GodotResPath(type(pathlib.Path())):
@@ -295,7 +295,7 @@ class ModelResource(GameResource):
         pass
 
     def apply_modifiers(self):
-        utils.apply_modifiers(self.related_objects)
+        gre_utils.apply_modifiers(self.related_objects)
     
     @staticmethod
     def from_collection(collection, config:Config=None):
@@ -331,7 +331,7 @@ class ModelResource(GameResource):
         return model
     
     def select_related_objects(self):
-        utils.select_only_objects(list(self.collection.objects.values()))
+        gre_utils.select_only_objects(list(self.collection.objects.values()))
 
     def export_obj(self):
         self.select_related_objects()
@@ -401,7 +401,7 @@ class ViewModel(ModelResource):
 
     def _process_object(self, obj):
         self.config.object_processors.execute_all(obj=obj)
-        self.animation_events.update(utils.export_animation_events(obj))
+        self.animation_events.update(gre_utils.export_animation_events(obj))
 
     def export(self, **kwargs):
         for material in self.materials.values():
@@ -412,10 +412,9 @@ class ViewModel(ModelResource):
         
         if self.render_animation:
             self._render_animations()
-
-        self.apply_modifiers()
         
         if self.format == "obj":
+            self.apply_modifiers()
             self.export_obj()
         elif self.format == "glb":
             self.export_glb()
@@ -620,10 +619,10 @@ class PhysicsModel(ModelResource):
         self.mesh_points = []
     
     def _process_object(self, obj):
-        self.mesh_points += utils.get_vertex_data(obj)
+        self.apply_modifiers()
+        self.mesh_points += gre_utils.get_vertex_data(obj)
 
     def export(self, **kwargs):
-        self.apply_modifiers()
         self.make_collision_shape().save()
         if self.rigid:     self.make_body(self.BodyType.RIGID).save()
         if self.static:    self.make_body(self.BodyType.STATIC).save()
